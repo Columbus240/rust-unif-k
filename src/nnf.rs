@@ -34,7 +34,6 @@ impl NNF {
         NNF::Or(set)
     }
 
-    #[allow(dead_code)]
     pub fn simpl(&self) -> NNF {
         match self {
             NNF::AtomPos(i) => NNF::AtomPos(*i),
@@ -125,9 +124,9 @@ impl NNF {
     // substitutes each occurrence of a variable by the formula `sigma`
     pub fn substitute(&self, sigma: &NNF) -> NNF {
         let sigma_neg = sigma.neg();
-	// this indirection is, so we don't need to recompute `sigma.neg()`
-	// multiple times
-	self.substitute1(sigma, &sigma_neg)
+        // this indirection is, so we don't need to recompute `sigma.neg()`
+        // multiple times
+        self.substitute1(sigma, &sigma_neg)
     }
 
     fn substitute1(&self, sigma: &NNF, sigma_neg: &NNF) -> NNF {
@@ -136,20 +135,8 @@ impl NNF {
             NNF::Bot => NNF::Bot,
             NNF::AtomPos(_) => sigma.clone(),
             NNF::AtomNeg(_) => sigma_neg.clone(),
-            NNF::And(s) => NNF::And(
-                s.iter()
-                    .map(|x| {
-                        x.substitute1(sigma, sigma_neg)
-                    })
-                    .collect(),
-            ),
-            NNF::Or(s) => NNF::Or(
-                s.iter()
-                    .map(|x| {
-                        x.substitute1(sigma, sigma_neg)
-                    })
-                    .collect(),
-            ),
+            NNF::And(s) => NNF::And(s.iter().map(|x| x.substitute1(sigma, sigma_neg)).collect()),
+            NNF::Or(s) => NNF::Or(s.iter().map(|x| x.substitute1(sigma, sigma_neg)).collect()),
             NNF::NnfBox(phi0) => NNF::NnfBox(Box::new(phi0.substitute1(sigma, sigma_neg))),
             NNF::NnfDia(phi0) => NNF::NnfDia(Box::new(phi0.substitute1(sigma, sigma_neg))),
         }

@@ -63,7 +63,7 @@ enum PSWstepResult {
 impl NNF {
     pub fn is_valid(&self) -> bool {
         PSW::from_nnf(self).is_valid()
-     }
+    }
 
     pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
         let mut conj = BTreeSet::new();
