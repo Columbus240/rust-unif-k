@@ -91,4 +91,55 @@ impl NNF {
             NNF::NnfDia(phi) => NNF::NnfDia(Arc::new(phi.simpl())),
         }
     }
+
+    // substitutes each occurrence of a variable by the formula `sigma`
+    pub fn substitute(&self, sigma: Arc<NNF>) -> Arc<NNF> {
+        let sigma_neg = Arc::new(sigma.neg());
+        let top = Arc::new(NNF::Top);
+        let bot = Arc::new(NNF::Bot);
+        self.substitute1(sigma, sigma_neg, top, bot)
+    }
+
+    fn substitute1(
+        &self,
+        sigma: Arc<NNF>,
+        sigma_neg: Arc<NNF>,
+        top: Arc<NNF>,
+        bot: Arc<NNF>,
+    ) -> Arc<NNF> {
+        match self {
+            NNF::Top => top,
+            NNF::Bot => bot,
+            NNF::AtomPos(_) => sigma,
+            NNF::AtomNeg(_) => sigma_neg,
+            NNF::And(s) => Arc::new(NNF::And(
+                s.iter()
+                    .cloned()
+                    .map(|x| {
+                        x.substitute1(sigma.clone(), sigma_neg.clone(), top.clone(), bot.clone())
+                    })
+                    .collect(),
+            )),
+            NNF::Or(s) => Arc::new(NNF::Or(
+                s.iter()
+                    .cloned()
+                    .map(|x| {
+                        x.substitute1(sigma.clone(), sigma_neg.clone(), top.clone(), bot.clone())
+                    })
+                    .collect(),
+            )),
+            NNF::NnfBox(phi0) => Arc::new(NNF::NnfBox(phi0.substitute1(
+                sigma.clone(),
+                sigma_neg.clone(),
+                top.clone(),
+                bot.clone(),
+            ))),
+            NNF::NnfDia(phi0) => Arc::new(NNF::NnfDia(phi0.substitute1(
+                sigma.clone(),
+                sigma_neg.clone(),
+                top.clone(),
+                bot.clone(),
+            ))),
+        }
+    }
 }

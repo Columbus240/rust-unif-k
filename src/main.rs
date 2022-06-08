@@ -141,64 +141,6 @@ fn generate_formulae<'a>(mut input: BTreeSet<Arc<NNF>>, steps: usize) -> BTreeSe
     generate_formulae(input, steps - 1)
 }
 
-// substitutes each occurrence of a variable by the formula `sigma`
-fn substitute(
-    phi: &NNF,
-    sigma: Arc<NNF>,
-    sigma_neg: Arc<NNF>,
-    top: Arc<NNF>,
-    bot: Arc<NNF>,
-) -> Arc<NNF> {
-    match phi {
-        NNF::Top => top,
-        NNF::Bot => bot,
-        NNF::AtomPos(_) => sigma,
-        NNF::AtomNeg(_) => sigma_neg,
-        NNF::And(s) => Arc::new(NNF::And(
-            s.iter()
-                .cloned()
-                .map(|x| {
-                    substitute(
-                        &x,
-                        sigma.clone(),
-                        sigma_neg.clone(),
-                        top.clone(),
-                        bot.clone(),
-                    )
-                })
-                .collect(),
-        )),
-        NNF::Or(s) => Arc::new(NNF::Or(
-            s.iter()
-                .cloned()
-                .map(|x| {
-                    substitute(
-                        &x,
-                        sigma.clone(),
-                        sigma_neg.clone(),
-                        top.clone(),
-                        bot.clone(),
-                    )
-                })
-                .collect(),
-        )),
-        NNF::NnfBox(phi0) => Arc::new(NNF::NnfBox(substitute(
-            &phi0,
-            sigma.clone(),
-            sigma_neg.clone(),
-            top.clone(),
-            bot.clone(),
-        ))),
-        NNF::NnfDia(phi0) => Arc::new(NNF::NnfDia(substitute(
-            &phi0,
-            sigma.clone(),
-            sigma_neg.clone(),
-            top.clone(),
-            bot.clone(),
-        ))),
-    }
-}
-
 fn print_formula_beautiful(phi: &NNF) -> String {
     match phi {
         NNF::Top => "⊤".to_owned(),
