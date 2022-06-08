@@ -67,8 +67,8 @@ impl NNF {
 
     pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
         let mut conj = BTreeSet::new();
-        let phi0 = phi.simpl();
-        let psi0 = psi.simpl();
+        let phi0 = phi;//.simpl();
+        let psi0 = psi;//.simpl();
         conj.insert(NNF::impli(&phi0, &psi0));
         conj.insert(NNF::impli(&psi0, &phi0));
         NNF::is_valid(&NNF::And(conj).simpl())
@@ -294,7 +294,8 @@ impl PS {
     fn is_valid(self) -> bool {
         self.to_psi()
             .into_par_iter()
-            .fold(|| true, |acc, psi| acc && psi.is_valid())
+            //.map(|psi| psi.is_valid())
+	    .fold(|| true, |acc, psi| acc && psi.is_valid())
             .reduce(|| true, |a, b| a && b)
     }
 }
@@ -303,7 +304,8 @@ impl PSI {
     fn is_valid(self) -> bool {
         self.step()
             .into_par_iter()
-            .fold(|| false, |acc, psw| acc || psw.is_valid())
+            //.map(|psi| psi.is_valid())
+	    .fold(|| false, |acc, psw| acc || psw.is_valid())
             .reduce(|| false, |a, b| a || b)
     }
 }

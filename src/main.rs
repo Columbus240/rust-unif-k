@@ -1,7 +1,14 @@
+#[allow(unused_imports)]
+use std::collections::btree_map::BTreeMap;
+#[allow(unused_imports)]
+use std::collections::btree_set::BTreeSet;
+
 mod decider;
 mod fineform;
 mod nnf;
 
+#[allow(unused_imports)]
+use fineform::*;
 use nnf::*;
 
 fn print_formula_beautiful(phi: &NNF) -> String {
@@ -39,7 +46,8 @@ fn print_formula_beautiful(phi: &NNF) -> String {
     }
 }
 
-fn print_formula(phi: &NNF) -> String {
+#[allow(dead_code)]
+fn print_formula_spartacus(phi: &NNF) -> String {
     match phi {
         NNF::Top => "1".to_owned(),
         NNF::Bot => "0".to_owned(),
@@ -50,9 +58,9 @@ fn print_formula(phi: &NNF) -> String {
                 + &({
                     let mut set_iter = s.iter();
                     let first = set_iter.next();
-                    first.map_or("".to_owned(), |f| print_formula(f))
+                    first.map_or("".to_owned(), |f| print_formula_spartacus(f))
                         + &set_iter
-                            .map(|x| print_formula(x))
+                            .map(|x| print_formula_spartacus(x))
                             .fold(String::new(), |acc: String, x| acc + "&" + &x)
                 })
                 + ")"
@@ -62,20 +70,26 @@ fn print_formula(phi: &NNF) -> String {
                 + &({
                     let mut set_iter = s.iter();
                     let first = set_iter.next();
-                    first.map_or("".to_owned(), |f| print_formula(f))
+                    first.map_or("".to_owned(), |f| print_formula_spartacus(f))
                         + &set_iter
-                            .map(|x| print_formula(x))
+                            .map(|x| print_formula_spartacus(x))
                             .fold(String::new(), |acc: String, x| acc + "|" + &x)
                 })
                 + ")"
         }
-        NNF::NnfBox(phi0) => "([a]".to_owned() + &print_formula(phi0) + ")",
-        NNF::NnfDia(phi0) => "(<a>".to_owned() + &print_formula(phi0) + ")",
+        NNF::NnfBox(phi0) => "([a]".to_owned() + &print_formula_spartacus(phi0) + ")",
+        NNF::NnfDia(phi0) => "(<a>".to_owned() + &print_formula_spartacus(phi0) + ")",
     }
 }
 
 fn main() {
-    let f = fineform::enumerate_formulae(2);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(16)
+        .build_global()
+        .unwrap();
+
+    let f = fineform::enumerate_formulae(1);
+    println!("len: {}", f.len());
     f.iter()
         .map(|ff| println!("{}", print_formula_beautiful(&ff.to_nnf().simpl())))
         .for_each(drop);

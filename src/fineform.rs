@@ -12,13 +12,13 @@ pub enum FineForm {
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FFNode {
-    atoms: BTreeMap<usize, bool>,
-    dia_branch: Option<FineForm>,
-    box_branches: BTreeSet<FineForm>,
+    pub atoms: BTreeMap<usize, bool>,
+    pub dia_branch: Option<FineForm>,
+    pub box_branches: BTreeSet<FineForm>,
 }
 
 impl FineForm {
-    fn bot() -> FineForm {
+    pub fn bot() -> FineForm {
         FineForm::Node(Box::new(FFNode {
             atoms: BTreeMap::new(),
             dia_branch: None,
@@ -38,6 +38,16 @@ impl FineForm {
         } else {
             0
         }
+    }
+
+    fn len(&self) -> usize {
+	if let FineForm::Node(node) = self {
+	    node.atoms.len() + 
+	    node.dia_branch.as_ref().map_or(0, |x| x.len() + 1) +
+		node.box_branches.iter().fold(0, |acc, x| acc + x.len() + 1)
+	} else {
+	    1
+	}
     }
 
     fn to_nnf_helper(i: usize, b: bool) -> NNF {
@@ -70,7 +80,7 @@ impl FineForm {
         NNF::Top
     }
 
-    fn or(self, other: FineForm) -> FineForm {
+    pub fn or(self, other: FineForm) -> FineForm {
         match (self, other) {
             (FineForm::Top, _) => FineForm::Top,
             (_, FineForm::Top) => FineForm::Top,
@@ -104,9 +114,73 @@ impl FineForm {
             }
         }
     }
+    /*
+    // Two non-trivial FineForms are equivalent if each of their three
+    // parts are equivalent.
+    #[allow(unused_variables)]
+    fn equiv_dec(&self, other: &FineForm) -> Option<bool> {
+        // first compare the atoms.
+    if self.atoms != other.atoms {
+        return Some(false);
+    }
+
+    // is true if we don't know whether the `dia_branch` are equivalent
+    let dia_result_unknown : bool;
+
+    if let Some(dia0) = self.dia_branch {
+        if let Some(dia1) = other.dia_branch {
+        match dia0.equiv_dec(dia1) {
+            None => { dia_result_unknown = true },
+            Some(false) => return Some(false),
+            Some(true) => { dia_result_unknown = false },
+        }
+        } else {
+        match dia0.equiv_dec(FineForm::bot()) {
+            None => { dia_result_unknown = true },
+            Some(false) => return Some(false),
+            Some(true) => { dia_result_unknown = false },
+        }
+        }
+    } else {
+        if let Some(dia1) = other.dia_branch {
+        match dia1.equiv_dec(FineForm::bot()) {
+            None => { dia_result_unknown = true },
+            Some(false) => return Some(false),
+            Some(true) => { dia_result_unknown = false },
+        }
+        } else {
+        dia_result_unknown = false;
+        }
+    }
+        panic!();
+    }
+    */
 }
 
-fn enumerate_triple_powerset<T: Clone>(input: &[T]) -> Vec<Vec<(bool, T)>> {
+#[allow(dead_code)]
+pub fn enumerate_powerset<T: Clone>(input: &[T]) -> Vec<Vec<(bool, T)>> {
+    if input.is_empty() {
+        return vec![vec![]];
+    }
+    let hd = input[0].clone();
+
+    let e = enumerate_powerset(&input[1..]);
+
+    let mut out = Vec::with_capacity(e.len());
+
+    for v in e {
+        let mut v0 = v.clone();
+        let mut v1 = v;
+        v0.push((true, hd.clone()));
+        v1.push((false, hd.clone()));
+        out.push(v0);
+        out.push(v1);
+    }
+
+    return out;
+}
+
+pub fn enumerate_triple_powerset<T: Clone>(input: &[T]) -> Vec<Vec<(bool, T)>> {
     if input.is_empty() {
         return vec![vec![]];
     }
@@ -127,40 +201,6 @@ fn enumerate_triple_powerset<T: Clone>(input: &[T]) -> Vec<Vec<(bool, T)>> {
     }
 
     return out;
-}
-
-fn enumerate_step_nnf(input: Vec<NNF>) -> Vec<NNF> {
-    let mut output = input.clone();
-
-    let base_vectors = vec![vec![], vec![(true, 0)], vec![(false, 0)]];
-
-    let powerset = enumerate_triple_powerset(&input);
-
-    for base in base_vectors {
-        for set in powerset.iter() {
-            let mut dia_branch: BTreeSet<NNF> = BTreeSet::new();
-
-            let mut disjuncts: BTreeSet<NNF> = BTreeSet::new();
-
-            for (b, f) in set {
-                if *b {
-                    dia_branch.insert(f.clone());
-                } else {
-                    disjuncts.insert(NNF::NnfBox(Box::new(f.neg())));
-                }
-            }
-
-            disjuncts.insert(NNF::NnfDia(Box::new(NNF::Or(dia_branch))));
-
-            for (b, i) in &base {
-                disjuncts.insert(FineForm::to_nnf_helper(*i, *b));
-            }
-
-            output.push(NNF::Or(disjuncts));
-        }
-    }
-
-    output
 }
 
 fn enumerate_step(input: Vec<FineForm>) -> Vec<FineForm> {
@@ -197,10 +237,14 @@ fn enumerate_step(input: Vec<FineForm>) -> Vec<FineForm> {
 
             // only add `new_ff` if no such element exists in
             // `output`
-            if let Some(_) = output
-                .iter()
-                .find(|ff| NNF::equiv_dec(&ff.to_nnf(), &new_ff.to_nnf()))
+            if let Some((idx, old_ff)) = output
+                .iter().enumerate()
+                .find(|(_, ff)| NNF::equiv_dec(&ff.to_nnf(), &new_ff.to_nnf()))
             {
+		if old_ff.len() > new_ff.len() {
+		    // replace the old_ff with the new_ff
+		    output[idx] = new_ff;
+		}
             } else {
                 output.push(new_ff);
             }
@@ -210,17 +254,23 @@ fn enumerate_step(input: Vec<FineForm>) -> Vec<FineForm> {
     output
 }
 
-pub fn enumerate_formulae_nnf(i: usize) -> Vec<NNF> {
-    if i == 0 {
-        vec![NNF::Top, NNF::Bot]
-    } else {
-        enumerate_step_nnf(enumerate_formulae_nnf(i - 1))
-    }
-}
-
 pub fn enumerate_formulae(i: usize) -> Vec<FineForm> {
     if i == 0 {
-        vec![FineForm::Top, FineForm::bot()]
+        let mut base1 = BTreeMap::new();
+        let mut base2 = BTreeMap::new();
+        base1.insert(0, true);
+        base2.insert(0, false);
+        let p = FineForm::Node(Box::new(FFNode {
+            atoms: base1,
+            dia_branch: None,
+            box_branches: BTreeSet::new(),
+        }));
+        let p_neg = FineForm::Node(Box::new(FFNode {
+            atoms: base2,
+            dia_branch: None,
+            box_branches: BTreeSet::new(),
+        }));
+        vec![FineForm::Top, FineForm::bot(), p, p_neg]
     } else {
         enumerate_step(enumerate_formulae(i - 1))
     }
@@ -255,6 +305,51 @@ impl Iterator<Item=Vec<(bool,T)>> {
 
             },
         }
+    }
+}
+*/
+
+/*
+fn enumerate_step_nnf(input: Vec<NNF>) -> Vec<NNF> {
+    let mut output = input.clone();
+
+    let base_vectors = vec![vec![], vec![(true, 0)], vec![(false, 0)]];
+
+    let powerset = enumerate_triple_powerset(&input);
+
+    for base in base_vectors {
+        for set in powerset.iter() {
+            let mut dia_branch: BTreeSet<NNF> = BTreeSet::new();
+
+            let mut disjuncts: BTreeSet<NNF> = BTreeSet::new();
+
+            for (b, f) in set {
+		println!("{}, {:?}", b, f);
+                if *b {
+                    dia_branch.insert(f.clone());
+                } else {
+                    disjuncts.insert(NNF::NnfBox(Box::new(f.neg())));
+                }
+            }
+
+            disjuncts.insert(NNF::NnfDia(Box::new(NNF::Or(dia_branch))));
+
+            for (b, i) in &base {
+                disjuncts.insert(FineForm::to_nnf_helper(*i, *b));
+            }
+
+            output.push(NNF::Or(disjuncts));
+        }
+    }
+
+    output
+}
+
+fn enumerate_formulae_nnf(i: usize) -> Vec<NNF> {
+    if i == 0 {
+        vec![NNF::Top, NNF::Bot]
+    } else {
+        enumerate_step_nnf(enumerate_formulae_nnf(i - 1))
     }
 }
 */
