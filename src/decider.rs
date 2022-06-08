@@ -1,6 +1,8 @@
 use std::collections::btree_set::BTreeSet;
 use std::sync::Arc;
 
+use rayon::prelude::*;
+
 use crate::nnf::NNF;
 
 struct PSW {
@@ -290,15 +292,17 @@ impl PSW {
 impl PS {
     fn is_valid(self) -> bool {
         self.to_psi()
-            .into_iter()
-            .fold(true, |acc, psi| acc && psi.is_valid())
+            .into_par_iter()
+            .fold(|| true, |acc, psi| acc && psi.is_valid())
+            .reduce(|| true, |a, b| a && b)
     }
 }
 
 impl PSI {
     fn is_valid(self) -> bool {
         self.step()
-            .into_iter()
-            .fold(false, |acc, psw| acc || psw.is_valid())
+            .into_par_iter()
+            .fold(|| false, |acc, psw| acc || psw.is_valid())
+            .reduce(|| false, |a, b| a || b)
     }
 }
