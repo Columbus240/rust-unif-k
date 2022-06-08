@@ -34,6 +34,7 @@ impl NNF {
         NNF::Or(set)
     }
 
+    #[allow(dead_code)]
     pub fn simpl(&self) -> NNF {
         match self {
             NNF::AtomPos(i) => NNF::AtomPos(*i),

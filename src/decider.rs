@@ -86,7 +86,7 @@ impl PSW {
             ld: Vec::new(),
             rc: Vec::new(),
             lw: BTreeSet::new(),
-            rw: rw,
+            rw,
         }
     }
 

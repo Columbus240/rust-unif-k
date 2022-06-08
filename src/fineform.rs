@@ -27,6 +27,7 @@ impl FineForm {
         }))
     }
 
+    #[allow(dead_code)]
     fn degree(&self) -> usize {
         if let FineForm::Node(node) = self {
             cmp::max(
@@ -54,11 +55,11 @@ impl FineForm {
                 .atoms
                 .iter()
                 .map(|(i, b)| FineForm::to_nnf_helper(*i, *b));
-            let mut dia_branch = node
+            let dia_branch = node
                 .dia_branch
                 .as_ref()
                 .map_or(NNF::Bot, |x| NNF::NnfDia(Arc::new(x.to_nnf())));
-            let mut box_branches = node
+            let box_branches = node
                 .box_branches
                 .iter()
                 .map(|x| NNF::NnfBox(Arc::new(x.to_nnf())));
