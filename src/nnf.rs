@@ -95,7 +95,7 @@ impl NNF {
                     return NNF::Bot;
                 }
                 if simpl_disjuncts.len() == 1 {
-                    return simpl_disjuncts.iter().next().unwrap().deref().clone();
+                    return simpl_disjuncts.iter().next().unwrap().clone();
                 }
                 let mut new_disjuncts = simpl_disjuncts.clone();
                 for phi in disjuncts.iter().cloned() {

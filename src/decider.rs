@@ -67,9 +67,11 @@ impl NNF {
 
     pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
         let mut conj = BTreeSet::new();
-        conj.insert(NNF::impli(phi, psi));
-        conj.insert(NNF::impli(psi, phi));
-        NNF::is_valid(&NNF::And(conj))
+        let phi0 = phi.simpl();
+        let psi0 = psi.simpl();
+        conj.insert(NNF::impli(&phi0, &psi0));
+        conj.insert(NNF::impli(&psi0, &phi0));
+        NNF::is_valid(&NNF::And(conj).simpl())
     }
 }
 
@@ -111,11 +113,11 @@ impl PSW {
                 NNF::Top => {
                     // do nothing
                 }
-                NNF::And(conjuncts) => {
-                    new_left_waiting.append(&mut conjuncts.clone());
+                NNF::And(mut conjuncts) => {
+                    new_left_waiting.append(&mut conjuncts);
                 }
                 NNF::Or(disjuncts) => {
-                    self.ld.push(disjuncts.clone());
+                    self.ld.push(disjuncts);
                 }
                 NNF::NnfBox(phi) => {
                     self.lb.insert(*phi);
@@ -148,10 +150,10 @@ impl PSW {
                     return PSWstepResult::Valid;
                 }
                 NNF::And(conjuncts) => {
-                    self.rc.push(conjuncts.clone());
+                    self.rc.push(conjuncts);
                 }
-                NNF::Or(disjuncts) => {
-                    new_right_waiting.append(&mut disjuncts.clone());
+                NNF::Or(mut disjuncts) => {
+                    new_right_waiting.append(&mut disjuncts);
                 }
                 NNF::NnfBox(phi) => {
                     self.rb.insert(*phi);
