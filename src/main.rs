@@ -269,40 +269,24 @@ fn print_formula(phi: &NNF) -> String {
     }
 }
 
-fn uniquify(l: &mut BTreeSet<Arc<NNF>>) {
-    println!("{}", l.len());
-    for i in [0..l.len()] {
-        println!("{}", i);
-    }
-}
-
 fn main() {
-    /*
-    for p in GenerateNfLevelIter::new(5, 0) {
-        println!("{:?}", p);
-    }
-    */
     let bot = Arc::new(NNF::Bot);
     let top = Arc::new(NNF::Top);
 
     let mut variable = BTreeSet::new();
     variable.insert(Arc::new(NNF::AtomPos(0)));
     variable.insert(Arc::new(NNF::AtomNeg(0)));
+    #[allow(unused_variables)]
     let variables = generate_formulae(variable, 3);
-    uniquify(&mut variables);
 
     let mut constant = BTreeSet::new();
     constant.insert(bot.clone());
     constant.insert(top.clone());
+    #[allow(unused_variables)]
     let constants = generate_formulae(constant, 3);
 
-    let f = fineform::enumerate_formulae(1);
+    let f = fineform::enumerate_formulae(2);
     f.iter()
-        .map(|ff| println!("{}", print_formula_beautiful(&ff.to_nnf())))
+        .map(|ff| println!("{}", print_formula_beautiful(&ff.to_nnf().simpl())))
         .for_each(drop);
-
-    println!(
-        "{}",
-        NNF::equiv_dec(&NNF::Bot, &NNF::NnfDia(Arc::new(NNF::Bot)))
-    );
 }
