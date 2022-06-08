@@ -114,6 +114,24 @@ impl FineForm {
             }
         }
     }
+
+    fn simplifiable(&self) -> bool {
+        if let FineForm::Node(node) = self {
+            if node.dia_branch.as_ref().map_or(false, |x| x.simplifiable())
+                || node.box_branches.iter().fold(false, |acc, x| {
+                    acc || x.simplifiable() || *x == FineForm::bot()
+                })
+            {
+                return true;
+            }
+            if node.dia_branch == Some(FineForm::bot()) {
+                return true;
+            }
+            return false;
+        } else {
+            false
+        }
+    }
     /*
     // Two non-trivial FineForms are equivalent if each of their three
     // parts are equivalent.
@@ -229,22 +247,37 @@ fn enumerate_step(input: Vec<FineForm>) -> Vec<FineForm> {
                     box_branches.insert(f.clone());
                 }
             }
+
+            let dia_branch = {
+                if dia_branch == FineForm::bot() {
+                    None
+                } else {
+                    Some(dia_branch)
+                }
+            };
+
             let new_ff = FineForm::Node(Box::new(FFNode {
                 atoms: base.clone(),
-                dia_branch: Some(dia_branch),
+                dia_branch: dia_branch,
                 box_branches,
             }));
+
+            // only add `new_ff` if no (easy) simplification is possible
+            if new_ff.simplifiable() {
+                continue;
+            }
 
             // only add `new_ff` if no such element exists in
             // `output`
             if let Some((idx, old_ff)) = output
-                .iter().enumerate()
+                .iter()
+                .enumerate()
                 .find(|(_, ff)| NNF::equiv_dec(&ff.to_nnf(), &new_ff.to_nnf()))
             {
-		if old_ff.len() > new_ff.len() {
-		    // replace the old_ff with the new_ff
-		    output[idx] = new_ff;
-		}
+                if old_ff.len() > new_ff.len() {
+                    // replace the old_ff with the new_ff
+                    output[idx] = new_ff;
+                }
             } else {
                 output.push(new_ff);
             }
