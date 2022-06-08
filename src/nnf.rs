@@ -56,7 +56,84 @@ impl NNF {
                     return NNF::Top;
                 }
                 if simpl_conjuncts.len() == 1 {
-                    return simpl_conjuncts.iter().next().unwrap().deref().clone();
+                    return simpl_conjuncts.iter().next().unwrap().clone();
+                }
+                if simpl_conjuncts.contains(&NNF::Bot) {
+                    return NNF::Bot;
+                }
+
+                // If any two formulae in `simpl_conjuncts` are complements
+                // of eachother, return `NNF::Bot`.
+                for phi in simpl_conjuncts.iter() {
+                    for psi in simpl_conjuncts.iter() {
+                        if *phi == psi.neg() {
+                            return NNF::Bot;
+                        }
+                    }
+                }
+                NNF::And(simpl_conjuncts)
+            }
+            NNF::Or(disjuncts) => {
+                let simpl_disjuncts: BTreeSet<NNF> = disjuncts
+                    .iter()
+                    .filter_map(|x| {
+                        let s = x.simpl();
+                        if s == NNF::Bot {
+                            None
+                        } else {
+                            Some(s)
+                        }
+                    })
+                    .collect();
+                if simpl_disjuncts.is_empty() {
+                    return NNF::Bot;
+                }
+                if simpl_disjuncts.len() == 1 {
+                    return simpl_disjuncts.iter().next().unwrap().clone();
+                }
+                if simpl_disjuncts.contains(&NNF::Top) {
+                    return NNF::Top;
+                }
+
+                // If any two formulae in `simpl_disjuncts` are complements
+                // of eachother, return `NNF::Top`.
+                for phi in simpl_disjuncts.iter() {
+                    for psi in simpl_disjuncts.iter() {
+                        if *phi == psi.neg() {
+                            return NNF::Top;
+                        }
+                    }
+                }
+                NNF::Or(simpl_disjuncts)
+            }
+            NNF::NnfBox(phi) => NNF::NnfBox(Box::new(phi.simpl())),
+            NNF::NnfDia(phi) => NNF::NnfDia(Box::new(phi.simpl())),
+        }
+    }
+
+    pub fn simpl_slow(&self) -> NNF {
+        match self {
+            NNF::AtomPos(i) => NNF::AtomPos(*i),
+            NNF::AtomNeg(i) => NNF::AtomNeg(*i),
+            NNF::Bot => NNF::Bot,
+            NNF::Top => NNF::Top,
+            NNF::And(conjuncts) => {
+                let simpl_conjuncts: BTreeSet<NNF> = conjuncts
+                    .iter()
+                    .filter_map(|x| {
+                        let s = x.simpl();
+                        if s == NNF::Top {
+                            None
+                        } else {
+                            Some(s)
+                        }
+                    })
+                    .collect();
+                if simpl_conjuncts.is_empty() {
+                    return NNF::Top;
+                }
+                if simpl_conjuncts.len() == 1 {
+                    return simpl_conjuncts.iter().next().unwrap().clone();
                 }
                 let mut new_conjuncts = simpl_conjuncts.clone();
                 for phi in simpl_conjuncts.iter().cloned() {
