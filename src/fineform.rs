@@ -41,13 +41,13 @@ impl FineForm {
     }
 
     fn len(&self) -> usize {
-	if let FineForm::Node(node) = self {
-	    node.atoms.len() + 
-	    node.dia_branch.as_ref().map_or(0, |x| x.len() + 1) +
-		node.box_branches.iter().fold(0, |acc, x| acc + x.len() + 1)
-	} else {
-	    1
-	}
+        if let FineForm::Node(node) = self {
+            node.atoms.len()
+                + node.dia_branch.as_ref().map_or(0, |x| x.len() + 1)
+                + node.box_branches.iter().fold(0, |acc, x| acc + x.len() + 1)
+        } else {
+            1
+        }
     }
 
     fn to_nnf_helper(i: usize, b: bool) -> NNF {
