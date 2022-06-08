@@ -1,8 +1,3 @@
-use rayon::prelude::*;
-use std::collections::btree_set::BTreeSet;
-use std::sync::Arc;
-use std::sync::Mutex;
-
 mod decider;
 mod fineform;
 mod nnf;
@@ -39,8 +34,8 @@ fn print_formula_beautiful(phi: &NNF) -> String {
                 })
                 + ")"
         }
-        NNF::NnfBox(phi0) => "(□".to_owned() + &print_formula_beautiful(phi0) + ")",
-        NNF::NnfDia(phi0) => "(◇".to_owned() + &print_formula_beautiful(phi0) + ")",
+        NNF::NnfBox(phi0) => "□".to_owned() + &print_formula_beautiful(phi0),
+        NNF::NnfDia(phi0) => "◇".to_owned() + &print_formula_beautiful(phi0),
     }
 }
 

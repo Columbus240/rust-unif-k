@@ -1,5 +1,4 @@
 use std::collections::btree_set::BTreeSet;
-use std::sync::Arc;
 
 use rayon::prelude::*;
 
@@ -12,19 +11,19 @@ struct PSW {
     ra: BTreeSet<usize>,
 
     // left boxes
-    lb: BTreeSet<Arc<NNF>>,
+    lb: BTreeSet<NNF>,
     // right boxes
-    rb: BTreeSet<Arc<NNF>>,
+    rb: BTreeSet<NNF>,
 
     // left disjunctions
-    ld: Vec<BTreeSet<Arc<NNF>>>,
+    ld: Vec<BTreeSet<NNF>>,
     // right conjunctions
-    rc: Vec<BTreeSet<Arc<NNF>>>,
+    rc: Vec<BTreeSet<NNF>>,
 
     // left waiting
-    lw: BTreeSet<Arc<NNF>>,
+    lw: BTreeSet<NNF>,
     // right waiting
-    rw: BTreeSet<Arc<NNF>>,
+    rw: BTreeSet<NNF>,
 }
 
 struct PS {
@@ -34,21 +33,21 @@ struct PS {
     ra: BTreeSet<usize>,
 
     // left boxes
-    lb: BTreeSet<Arc<NNF>>,
+    lb: BTreeSet<NNF>,
     // right boxes
-    rb: BTreeSet<Arc<NNF>>,
+    rb: BTreeSet<NNF>,
 
     // left disjunctions
-    ld: Vec<BTreeSet<Arc<NNF>>>,
+    ld: Vec<BTreeSet<NNF>>,
     // right conjunctions
-    rc: Vec<BTreeSet<Arc<NNF>>>,
+    rc: Vec<BTreeSet<NNF>>,
 }
 
 struct PSI {
     // left boxes
-    lb: BTreeSet<Arc<NNF>>,
+    lb: BTreeSet<NNF>,
     // right boxes
-    rb: BTreeSet<Arc<NNF>>,
+    rb: BTreeSet<NNF>,
 }
 
 enum PSWstepResult {
@@ -58,26 +57,22 @@ enum PSWstepResult {
 }
 
 impl NNF {
-    pub fn is_valid(phi: Arc<NNF>) -> bool {
-        PSW::from_nnf(phi).is_valid()
-    }
-
-    pub fn is_valid0(phi: &NNF) -> bool {
-        NNF::is_valid(Arc::new(phi.clone()))
-    }
+    pub fn is_valid(&self) -> bool {
+        PSW::from_nnf(self).is_valid()
+     }
 
     pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
         let mut conj = BTreeSet::new();
-        conj.insert(Arc::new(NNF::impli(phi, psi)));
-        conj.insert(Arc::new(NNF::impli(psi, phi)));
-        NNF::is_valid(Arc::new(NNF::And(conj)))
+        conj.insert(NNF::impli(phi, psi));
+        conj.insert(NNF::impli(psi, phi));
+        NNF::is_valid(&NNF::And(conj))
     }
 }
 
 impl PSW {
-    fn from_nnf(phi: Arc<NNF>) -> PSW {
+    fn from_nnf(phi: &NNF) -> PSW {
         let mut rw = BTreeSet::new();
-        rw.insert(phi);
+        rw.insert(phi.clone());
         PSW {
             la: BTreeSet::new(),
             ra: BTreeSet::new(),
@@ -93,18 +88,18 @@ impl PSW {
     fn step(mut self) -> PSWstepResult {
         let mut new_left_waiting = BTreeSet::new();
         for left_waiting in self.lw.into_iter() {
-            match &*left_waiting {
+            match left_waiting {
                 NNF::AtomPos(i) => {
-                    if self.ra.contains(i) {
+                    if self.ra.contains(&i) {
                         return PSWstepResult::Valid;
                     }
-                    self.la.insert(*i);
+                    self.la.insert(i);
                 }
                 NNF::AtomNeg(i) => {
-                    if self.la.contains(i) {
+                    if self.la.contains(&i) {
                         return PSWstepResult::Valid;
                     }
-                    self.ra.insert(*i);
+                    self.ra.insert(i);
                 }
                 NNF::Bot => {
                     return PSWstepResult::Valid;
@@ -119,28 +114,28 @@ impl PSW {
                     self.ld.push(disjuncts.clone());
                 }
                 NNF::NnfBox(phi) => {
-                    self.lb.insert(phi.clone());
+                    self.lb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.rb.insert(Arc::new(phi.neg()));
+                    self.rb.insert(phi.neg());
                 }
             }
         }
 
         let mut new_right_waiting = BTreeSet::new();
         for right_waiting in self.rw.into_iter() {
-            match &*right_waiting {
+            match right_waiting {
                 NNF::AtomPos(i) => {
-                    if self.la.contains(i) {
+                    if self.la.contains(&i) {
                         return PSWstepResult::Valid;
                     }
-                    self.ra.insert(*i);
+                    self.ra.insert(i);
                 }
                 NNF::AtomNeg(i) => {
-                    if self.ra.contains(i) {
+                    if self.ra.contains(&i) {
                         return PSWstepResult::Valid;
                     }
-                    self.la.insert(*i);
+                    self.la.insert(i);
                 }
                 NNF::Bot => {
                     // do nothing
@@ -155,10 +150,10 @@ impl PSW {
                     new_right_waiting.append(&mut disjuncts.clone());
                 }
                 NNF::NnfBox(phi) => {
-                    self.rb.insert(phi.clone());
+                    self.rb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.lb.insert(Arc::new(phi.neg()));
+                    self.lb.insert(phi.neg());
                 }
             }
         }

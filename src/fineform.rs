@@ -1,7 +1,6 @@
 use std::cmp;
 use std::collections::btree_map::BTreeMap;
 use std::collections::btree_set::BTreeSet;
-use std::sync::Arc;
 
 use crate::nnf::NNF;
 
@@ -58,14 +57,14 @@ impl FineForm {
             let dia_branch = node
                 .dia_branch
                 .as_ref()
-                .map_or(NNF::Bot, |x| NNF::NnfDia(Arc::new(x.to_nnf())));
+                .map_or(NNF::Bot, |x| NNF::NnfDia(Box::new(x.to_nnf())));
             let box_branches = node
                 .box_branches
                 .iter()
-                .map(|x| NNF::NnfBox(Arc::new(x.to_nnf())));
-            let mut output = atoms.map(|x| Arc::new(x)).collect::<BTreeSet<_>>();
-            output.insert(Arc::new(dia_branch));
-            output.extend(box_branches.map(|x| Arc::new(x)));
+                .map(|x| NNF::NnfBox(Box::new(x.to_nnf().neg())));
+            let mut output = atoms.collect::<BTreeSet<_>>();
+            output.insert(dia_branch);
+            output.extend(box_branches);
             return NNF::Or(output);
         }
         NNF::Top
@@ -130,7 +129,7 @@ fn enumerate_triple_powerset<T: Clone>(input: &[T]) -> Vec<Vec<(bool, T)>> {
     return out;
 }
 
-fn enumerate_step_nnf(input: Vec<Arc<NNF>>) -> Vec<Arc<NNF>> {
+fn enumerate_step_nnf(input: Vec<NNF>) -> Vec<NNF> {
     let mut output = input.clone();
 
     let base_vectors = vec![vec![], vec![(true, 0)], vec![(false, 0)]];
@@ -139,25 +138,25 @@ fn enumerate_step_nnf(input: Vec<Arc<NNF>>) -> Vec<Arc<NNF>> {
 
     for base in base_vectors {
         for set in powerset.iter() {
-            let mut dia_branch: BTreeSet<Arc<_>> = BTreeSet::new();
+            let mut dia_branch: BTreeSet<NNF> = BTreeSet::new();
 
-            let mut disjuncts: BTreeSet<Arc<_>> = BTreeSet::new();
+            let mut disjuncts: BTreeSet<NNF> = BTreeSet::new();
 
             for (b, f) in set {
                 if *b {
                     dia_branch.insert(f.clone());
                 } else {
-                    disjuncts.insert(Arc::new(NNF::NnfBox(Arc::new(f.neg()))));
+                    disjuncts.insert(NNF::NnfBox(Box::new(f.neg())));
                 }
             }
 
-            disjuncts.insert(Arc::new(NNF::NnfDia(Arc::new(NNF::Or(dia_branch)))));
+            disjuncts.insert(NNF::NnfDia(Box::new(NNF::Or(dia_branch))));
 
             for (b, i) in &base {
-                disjuncts.insert(Arc::new(FineForm::to_nnf_helper(*i, *b)));
+                disjuncts.insert(FineForm::to_nnf_helper(*i, *b));
             }
 
-            output.push(Arc::new(NNF::Or(disjuncts)));
+            output.push(NNF::Or(disjuncts));
         }
     }
 
@@ -211,9 +210,9 @@ fn enumerate_step(input: Vec<FineForm>) -> Vec<FineForm> {
     output
 }
 
-pub fn enumerate_formulae_nnf(i: usize) -> Vec<Arc<NNF>> {
+pub fn enumerate_formulae_nnf(i: usize) -> Vec<NNF> {
     if i == 0 {
-        vec![Arc::new(NNF::Top), Arc::new(NNF::Bot)]
+        vec![NNF::Top, NNF::Bot]
     } else {
         enumerate_step_nnf(enumerate_formulae_nnf(i - 1))
     }
