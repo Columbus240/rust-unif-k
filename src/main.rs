@@ -6,6 +6,7 @@ use std::collections::btree_set::BTreeSet;
 mod decider;
 mod fineform;
 mod nnf;
+mod powerset;
 
 #[allow(unused_imports)]
 use fineform::*;
@@ -88,9 +89,9 @@ fn main() {
         .build_global()
         .unwrap();
 
-    let f = fineform::enumerate_formulae(1);
+    let f = fineform::enumerate_formulae(2);
     println!("len: {}", f.len());
     f.iter()
-        .map(|ff| println!("{}", print_formula_beautiful(&ff.to_nnf().simpl())))
+        .map(|ff| println!("{}", print_formula_beautiful(&ff.to_nnf().simpl_slow())))
         .for_each(drop);
 }

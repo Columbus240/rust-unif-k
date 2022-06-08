@@ -3,6 +3,7 @@ use std::collections::btree_map::BTreeMap;
 use std::collections::btree_set::BTreeSet;
 
 use crate::nnf::NNF;
+use crate::powerset::TriplePowersetIterator;
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FineForm {
@@ -175,52 +176,6 @@ impl FineForm {
     */
 }
 
-#[allow(dead_code)]
-pub fn enumerate_powerset<T: Clone>(input: &[T]) -> Vec<Vec<(bool, T)>> {
-    if input.is_empty() {
-        return vec![vec![]];
-    }
-    let hd = input[0].clone();
-
-    let e = enumerate_powerset(&input[1..]);
-
-    let mut out = Vec::with_capacity(e.len());
-
-    for v in e {
-        let mut v0 = v.clone();
-        let mut v1 = v;
-        v0.push((true, hd.clone()));
-        v1.push((false, hd.clone()));
-        out.push(v0);
-        out.push(v1);
-    }
-
-    return out;
-}
-
-pub fn enumerate_triple_powerset<T: Clone>(input: &[T]) -> Vec<Vec<(bool, T)>> {
-    if input.is_empty() {
-        return vec![vec![]];
-    }
-    let hd = input[0].clone();
-
-    let e = enumerate_triple_powerset(&input[1..]);
-
-    let mut out = Vec::with_capacity(3 * e.len());
-
-    for v in e {
-        let mut v0 = v.clone();
-        let mut v1 = v.clone();
-        out.push(v);
-        v0.push((true, hd.clone()));
-        v1.push((false, hd.clone()));
-        out.push(v0);
-        out.push(v1);
-    }
-
-    return out;
-}
-
 fn enumerate_step(input: Vec<FineForm>) -> Vec<FineForm> {
     let mut output = input.clone();
 
@@ -233,15 +188,15 @@ fn enumerate_step(input: Vec<FineForm>) -> Vec<FineForm> {
         vec![base0, base1, base2]
     };
 
-    let powerset = enumerate_triple_powerset(&input);
+    let powerset = TriplePowersetIterator::new(&input);
 
     for base in base_vectors {
-        for set in powerset.iter() {
+        for set in powerset.clone() {
             let mut dia_branch = FineForm::bot();
             let mut box_branches = BTreeSet::new();
 
             for (b, f) in set {
-                if *b {
+                if b {
                     dia_branch = dia_branch.or(f.clone());
                 } else {
                     box_branches.insert(f.clone());
@@ -357,7 +312,7 @@ fn enumerate_step_nnf(input: Vec<NNF>) -> Vec<NNF> {
             let mut disjuncts: BTreeSet<NNF> = BTreeSet::new();
 
             for (b, f) in set {
-		println!("{}, {:?}", b, f);
+        println!("{}, {:?}", b, f);
                 if *b {
                     dia_branch.insert(f.clone());
                 } else {
