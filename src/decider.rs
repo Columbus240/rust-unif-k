@@ -1,57 +1,59 @@
-use std::collections::btree_set::BTreeSet;
+use std::collections::btree_map::BTreeMap;
 
 use rayon::prelude::*;
 
 use crate::nnf::NNF;
+
+#[derive(Clone)]
+enum LeftRight {
+    Left,
+    Right,
+}
 
 // Its possible to replace `la` and `ra` by a single
 // `BTreeMap<usize, bool>`, where true/false stand for left/right or similar.
 // (use an enum, to simplify remembering the right thing)
 // This way (using `try_insert`) its easier to check whether a sequent is valid.
 struct PSW {
-    // left atoms
-    la: BTreeSet<usize>,
-    // right atoms
-    ra: BTreeSet<usize>,
+    // atoms (left or right)
+    atoms: BTreeMap<usize, LeftRight>,
 
     // left boxes
-    lb: BTreeSet<NNF>,
+    lb: Vec<NNF>,
     // right boxes
-    rb: BTreeSet<NNF>,
+    rb: Vec<NNF>,
 
     // left disjunctions
-    ld: Vec<BTreeSet<NNF>>,
+    ld: Vec<Vec<NNF>>,
     // right conjunctions
-    rc: Vec<BTreeSet<NNF>>,
+    rc: Vec<Vec<NNF>>,
 
     // left waiting
-    lw: BTreeSet<NNF>,
+    lw: Vec<NNF>,
     // right waiting
-    rw: BTreeSet<NNF>,
+    rw: Vec<NNF>,
 }
 
 struct PS {
-    // left atoms
-    la: BTreeSet<usize>,
-    // right atoms
-    ra: BTreeSet<usize>,
+    // atoms (left or right)
+    atoms: BTreeMap<usize, LeftRight>,
 
     // left boxes
-    lb: BTreeSet<NNF>,
+    lb: Vec<NNF>,
     // right boxes
-    rb: BTreeSet<NNF>,
+    rb: Vec<NNF>,
 
     // left disjunctions
-    ld: Vec<BTreeSet<NNF>>,
+    ld: Vec<Vec<NNF>>,
     // right conjunctions
-    rc: Vec<BTreeSet<NNF>>,
+    rc: Vec<Vec<NNF>>,
 }
 
 struct PSI {
     // left boxes
-    lb: BTreeSet<NNF>,
+    lb: Vec<NNF>,
     // right boxes
-    rb: BTreeSet<NNF>,
+    rb: Vec<NNF>,
 }
 
 enum PSWstepResult {
@@ -61,52 +63,46 @@ enum PSWstepResult {
 }
 
 impl NNF {
-    pub fn is_valid(&self) -> bool {
+    pub fn is_valid(self) -> bool {
         PSW::from_nnf(self).is_valid()
     }
 
-    pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
-        let mut conj = BTreeSet::new();
-        let phi0 = phi;//.simpl();
-        let psi0 = psi;//.simpl();
-        conj.insert(NNF::impli(&phi0, &psi0));
-        conj.insert(NNF::impli(&psi0, &phi0));
-        NNF::is_valid(&NNF::And(conj).simpl())
+    pub fn equiv_dec(phi: NNF, psi: NNF) -> bool {
+        let mut conj = Vec::with_capacity(2);
+        let phi0 = phi; //.simpl();
+        let psi0 = psi; //.simpl();
+        conj.push(NNF::impli(phi0.clone(), psi0.clone()));
+        conj.push(NNF::impli(psi0, phi0));
+        //        NNF::is_valid(NNF::And(conj).simpl())
+        NNF::is_valid(NNF::And(conj))
     }
 }
 
 impl PSW {
-    fn from_nnf(phi: &NNF) -> PSW {
-        let mut rw = BTreeSet::new();
-        rw.insert(phi.clone());
+    fn from_nnf(phi: NNF) -> PSW {
         PSW {
-            la: BTreeSet::new(),
-            ra: BTreeSet::new(),
-            lb: BTreeSet::new(),
-            rb: BTreeSet::new(),
+            atoms: BTreeMap::new(),
+            lb: Vec::new(),
+            rb: Vec::new(),
             ld: Vec::new(),
             rc: Vec::new(),
-            lw: BTreeSet::new(),
-            rw,
+            lw: Vec::new(),
+            rw: vec![phi],
         }
     }
 
     fn step(mut self) -> PSWstepResult {
-        let mut new_left_waiting = BTreeSet::new();
+        let mut new_left_waiting = Vec::with_capacity(self.lw.len());
         for left_waiting in self.lw.into_iter() {
             match left_waiting {
-                NNF::AtomPos(i) => {
-                    if self.ra.contains(&i) {
-                        return PSWstepResult::Valid;
-                    }
-                    self.la.insert(i);
-                }
-                NNF::AtomNeg(i) => {
-                    if self.la.contains(&i) {
-                        return PSWstepResult::Valid;
-                    }
-                    self.ra.insert(i);
-                }
+                NNF::AtomPos(i) => match self.atoms.insert(i, LeftRight::Left) {
+                    Some(LeftRight::Right) => return PSWstepResult::Valid,
+                    _ => {}
+                },
+                NNF::AtomNeg(i) => match self.atoms.insert(i, LeftRight::Right) {
+                    Some(LeftRight::Left) => return PSWstepResult::Valid,
+                    _ => {}
+                },
                 NNF::Bot => {
                     return PSWstepResult::Valid;
                 }
@@ -120,29 +116,25 @@ impl PSW {
                     self.ld.push(disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    self.lb.insert(*phi);
+                    self.lb.push(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.rb.insert(phi.neg());
+                    self.rb.push(phi.neg());
                 }
             }
         }
 
-        let mut new_right_waiting = BTreeSet::new();
+        let mut new_right_waiting = Vec::with_capacity(self.rw.len());
         for right_waiting in self.rw.into_iter() {
             match right_waiting {
-                NNF::AtomPos(i) => {
-                    if self.la.contains(&i) {
-                        return PSWstepResult::Valid;
-                    }
-                    self.ra.insert(i);
-                }
-                NNF::AtomNeg(i) => {
-                    if self.ra.contains(&i) {
-                        return PSWstepResult::Valid;
-                    }
-                    self.la.insert(i);
-                }
+                NNF::AtomPos(i) => match self.atoms.insert(i, LeftRight::Right) {
+                    Some(LeftRight::Left) => return PSWstepResult::Valid,
+                    _ => {}
+                },
+                NNF::AtomNeg(i) => match self.atoms.insert(i, LeftRight::Left) {
+                    Some(LeftRight::Right) => return PSWstepResult::Valid,
+                    _ => {}
+                },
                 NNF::Bot => {
                     // do nothing
                 }
@@ -156,18 +148,17 @@ impl PSW {
                     new_right_waiting.append(&mut disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    self.rb.insert(*phi);
+                    self.rb.push(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.lb.insert(phi.neg());
+                    self.lb.push(phi.neg());
                 }
             }
         }
 
         if new_left_waiting.is_empty() && new_right_waiting.is_empty() {
             return PSWstepResult::Next(PS {
-                la: self.la,
-                ra: self.ra,
+                atoms: self.atoms,
                 lb: self.lb,
                 rb: self.rb,
                 ld: self.ld,
@@ -191,7 +182,6 @@ impl PSW {
 enum PSstepResult {
     Waiting(Vec<PSW>),
     Next(PSI),
-    Valid,
 }
 
 impl PS {
@@ -199,17 +189,14 @@ impl PS {
         if let Some(disjuncts) = self.ld.pop() {
             let mut new_psw = Vec::with_capacity(disjuncts.len());
             for disj in disjuncts.into_iter() {
-                let mut lw_new = BTreeSet::new();
-                lw_new.insert(disj);
                 new_psw.push(PSW {
-                    la: self.la.clone(),
-                    ra: self.ra.clone(),
+                    atoms: self.atoms.clone(),
                     lb: self.lb.clone(),
                     rb: self.rb.clone(),
                     ld: self.ld.clone(),
                     rc: self.rc.clone(),
-                    lw: lw_new,
-                    rw: BTreeSet::new(),
+                    lw: vec![disj],
+                    rw: Vec::new(),
                 });
             }
             return PSstepResult::Waiting(new_psw);
@@ -217,34 +204,26 @@ impl PS {
         if let Some(conjuncts) = self.rc.pop() {
             let mut new_psw = Vec::with_capacity(conjuncts.len());
             for conj in conjuncts.into_iter() {
-                let mut rw_new = BTreeSet::new();
-                rw_new.insert(conj);
                 new_psw.push(PSW {
-                    la: self.la.clone(),
-                    ra: self.ra.clone(),
+                    atoms: self.atoms.clone(),
                     lb: self.lb.clone(),
                     rb: self.rb.clone(),
                     ld: self.ld.clone(),
                     rc: self.rc.clone(),
-                    lw: BTreeSet::new(),
-                    rw: rw_new,
+                    lw: Vec::new(),
+                    rw: vec![conj],
                 });
             }
             return PSstepResult::Waiting(new_psw);
         }
-        if self.la.intersection(&self.ra).next().is_none() {
-            return PSstepResult::Next(PSI {
-                lb: self.lb,
-                rb: self.rb,
-            });
-        } else {
-            return PSstepResult::Valid;
-        }
+        return PSstepResult::Next(PSI {
+            lb: self.lb,
+            rb: self.rb,
+        });
     }
 
     fn to_psi(self) -> Vec<PSI> {
         match self.step() {
-            PSstepResult::Valid => Vec::new(),
             PSstepResult::Waiting(psw_vec) => {
                 let mut output = Vec::with_capacity(psw_vec.len());
                 for psw in psw_vec {
@@ -264,17 +243,14 @@ impl PSI {
     fn step(self) -> Vec<PSW> {
         let mut output = Vec::with_capacity(self.rb.len());
         for rb in self.rb.into_iter() {
-            let mut new_rw = BTreeSet::new();
-            new_rw.insert(rb);
             output.push(PSW {
-                la: BTreeSet::new(),
-                ra: BTreeSet::new(),
-                lb: BTreeSet::new(),
-                rb: BTreeSet::new(),
+                atoms: BTreeMap::new(),
+                lb: Vec::new(),
+                rb: Vec::new(),
                 ld: Vec::new(),
                 rc: Vec::new(),
                 lw: self.lb.clone(),
-                rw: new_rw,
+                rw: vec![rb],
             });
         }
         return output;
@@ -293,19 +269,21 @@ impl PSW {
 impl PS {
     fn is_valid(self) -> bool {
         self.to_psi()
-            .into_par_iter()
+            //.into_par_iter()
+            .into_iter()
             //.map(|psi| psi.is_valid())
-	    .fold(|| true, |acc, psi| acc && psi.is_valid())
-            .reduce(|| true, |a, b| a && b)
+            .fold(true, |acc, psi| acc && psi.is_valid())
+        //            .reduce(|| true, |a, b| a && b)
     }
 }
 
 impl PSI {
     fn is_valid(self) -> bool {
         self.step()
-            .into_par_iter()
+            //.into_par_iter()
+            .into_iter()
             //.map(|psi| psi.is_valid())
-	    .fold(|| false, |acc, psw| acc || psw.is_valid())
-            .reduce(|| false, |a, b| a || b)
+            .fold(false, |acc, psw| acc || psw.is_valid())
+        //.reduce(|| false, |a, b| a || b)
     }
 }
