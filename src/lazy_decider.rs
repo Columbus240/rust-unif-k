@@ -1,10 +1,9 @@
 use std::collections::btree_map::BTreeMap;
-use std::fs::OpenOptions;
-use std::io::prelude::*;
+use std::collections::btree_set::BTreeSet;
 
-#[allow(unused_imports)]
 use rayon::prelude::*;
 
+use crate::lazy_nnf::*;
 use crate::nnf::NNF;
 
 #[derive(Clone)]
@@ -22,19 +21,19 @@ struct PSW {
     atoms: BTreeMap<usize, LeftRight>,
 
     // left boxes
-    lb: Vec<NNF>,
+    lb: BTreeSet<LazyNNF>,
     // right boxes
-    rb: Vec<NNF>,
+    rb: BTreeSet<LazyNNF>,
 
     // left disjunctions
-    ld: Vec<Vec<NNF>>,
+    ld: Vec<BTreeSet<LazyNNF>>,
     // right conjunctions
-    rc: Vec<Vec<NNF>>,
+    rc: Vec<BTreeSet<LazyNNF>>,
 
     // left waiting
-    lw: Vec<NNF>,
+    lw: BTreeSet<LazyNNF>,
     // right waiting
-    rw: Vec<NNF>,
+    rw: BTreeSet<LazyNNF>,
 }
 
 struct PS {
@@ -42,21 +41,21 @@ struct PS {
     atoms: BTreeMap<usize, LeftRight>,
 
     // left boxes
-    lb: Vec<NNF>,
+    lb: BTreeSet<NNF>,
     // right boxes
-    rb: Vec<NNF>,
+    rb: BTreeSet<NNF>,
 
     // left disjunctions
-    ld: Vec<Vec<NNF>>,
+    ld: Vec<BTreeSet<NNF>>,
     // right conjunctions
-    rc: Vec<Vec<NNF>>,
+    rc: Vec<BTreeSet<NNF>>,
 }
 
 struct PSI {
     // left boxes
-    lb: Vec<NNF>,
+    lb: BTreeSet<NNF>,
     // right boxes
-    rb: Vec<NNF>,
+    rb: BTreeSet<NNF>,
 }
 
 enum PSWstepResult {
@@ -65,107 +64,100 @@ enum PSWstepResult {
     Valid,
 }
 
-impl NNF {
+impl LazyNNF {
     pub fn is_valid(self) -> bool {
-	// short circuit
-	match self {
-	    NNF::Bot | NNF::AtomPos(_) | NNF::AtomNeg(_) => {
-		return false;
-	    },
-	    _ => {},
-	}
-
-	let result = PSW::from_nnf(self.clone()).is_valid();
-	if result {
-	    let mut file = OpenOptions::new()
-		.create(true)
-		.write(true)
-		.append(true)
-		.open("valid_formulae")
-		.unwrap();
-	    writeln!(file, "{}", self.display_spartacus()).unwrap();
-	} else {
-	    let mut file = OpenOptions::new()
-		.create(true)
-		.write(true)
-		.append(true)
-		.open("invalid_formulae")
-		.unwrap();
-	    writeln!(file, "{}", self.display_spartacus()).unwrap();
-	}
-
-	result
+        PSW::from_lazynnf(self).is_valid()
     }
 
-    pub fn equiv_dec(phi: NNF, psi: NNF) -> bool {
-	if phi == psi {
-	    return true;
-	}
-
-	if phi == NNF::Top {
-	    return NNF::is_valid(psi);
-	}
-	if psi == NNF::Top {
-	    return NNF::is_valid(phi);
-	}
-
-        let mut conj = Vec::with_capacity(2);
+    pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
+        let mut conj = BTreeSet::new();
         let phi0 = phi; //.simpl();
         let psi0 = psi; //.simpl();
-        conj.push(NNF::impli(phi0.clone(), psi0.clone()));
-        conj.push(NNF::impli(psi0, phi0));
-        //        NNF::is_valid(NNF::And(conj).simpl())
-        NNF::is_valid(NNF::And(conj))
+        conj.insert(NNF::impli(&phi0, &psi0));
+        conj.insert(NNF::impli(&psi0, &phi0));
+        NNF::is_valid(&NNF::And(conj).simpl())
     }
 }
 
 impl PSW {
-    fn from_nnf(phi: NNF) -> PSW {
+    fn from_lazynnf(phi: LazyNNF) -> PSW {
+        let mut rw = BTreeSet::new();
+        rw.insert(phi);
         PSW {
             atoms: BTreeMap::new(),
-            lb: Vec::new(),
-            rb: Vec::new(),
+            lb: BTreeSet::new(),
+            rb: BTreeSet::new(),
             ld: Vec::new(),
             rc: Vec::new(),
-            lw: Vec::new(),
-            rw: vec![phi],
+            lw: BTreeSet::new(),
+            rw,
         }
     }
 
     fn step(mut self) -> PSWstepResult {
-        let mut new_left_waiting = Vec::with_capacity(self.lw.len());
+        let mut new_left_waiting = BTreeSet::new();
         for left_waiting in self.lw.into_iter() {
-            match left_waiting {
-                NNF::AtomPos(i) => match self.atoms.insert(i, LeftRight::Left) {
-                    Some(LeftRight::Right) => return PSWstepResult::Valid,
-                    _ => {}
-                },
-                NNF::AtomNeg(i) => match self.atoms.insert(i, LeftRight::Right) {
-                    Some(LeftRight::Left) => return PSWstepResult::Valid,
-                    _ => {}
-                },
-                NNF::Bot => {
-                    return PSWstepResult::Valid;
+            match left_waiting.formula {
+                LazyNNFFormula::AtomPos(i) => {
+                    if left_waiting.negated {
+                        match self.atoms.insert(i, LeftRight::Right) {
+                            Some(LeftRight::Left) => return PSWstepResult::Valid,
+                            _ => {}
+                        }
+                    } else {
+                        match self.atoms.insert(i, LeftRight::Left) {
+                            Some(LeftRight::Right) => return PSWstepResult::Valid,
+                            _ => {}
+                        }
+                    }
                 }
-                NNF::Top => {
-                    // do nothing
+                LazyNNFFormula::AtomNeg(i) => {
+                    if left_waiting.negated {
+                        match self.atoms.insert(i, LeftRight::Left) {
+                            Some(LeftRight::Right) => return PSWstepResult::Valid,
+                            _ => {}
+                        }
+                    } else {
+                        match self.atoms.insert(i, LeftRight::Right) {
+                            Some(LeftRight::Left) => return PSWstepResult::Valid,
+                            _ => {}
+                        }
+                    }
+                },
+                LazyNNFFormula::Bot => {
+		    if left_waiting.negated {
+			// do nothing
+		    } else {
+			return PSWstepResult::Valid;
+		    }
                 }
-                NNF::And(mut conjuncts) => {
-                    new_left_waiting.append(&mut conjuncts);
+                LazyNNFFormula::Top => {
+		    if left_waiting.negated {
+			return PSWstepResult::Valid;
+		    } else {
+			// do nothing
+		    }
+                }
+                LazyNNFFormula::And(mut conjuncts) => {
+		    if left_waiting.negated {
+			conjuncts.ma
+		    } else {
+			new_left_waiting.append(&mut conjuncts);
+		    }
                 }
                 NNF::Or(disjuncts) => {
                     self.ld.push(disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    self.lb.push(*phi);
+                    self.lb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.rb.push(phi.neg());
+                    self.rb.insert(phi.neg());
                 }
             }
         }
 
-        let mut new_right_waiting = Vec::with_capacity(self.rw.len());
+        let mut new_right_waiting = BTreeSet::new();
         for right_waiting in self.rw.into_iter() {
             match right_waiting {
                 NNF::AtomPos(i) => match self.atoms.insert(i, LeftRight::Right) {
@@ -189,10 +181,10 @@ impl PSW {
                     new_right_waiting.append(&mut disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    self.rb.push(*phi);
+                    self.rb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.lb.push(phi.neg());
+                    self.lb.insert(phi.neg());
                 }
             }
         }
@@ -230,14 +222,16 @@ impl PS {
         if let Some(disjuncts) = self.ld.pop() {
             let mut new_psw = Vec::with_capacity(disjuncts.len());
             for disj in disjuncts.into_iter() {
+                let mut lw_new = BTreeSet::new();
+                lw_new.insert(disj);
                 new_psw.push(PSW {
                     atoms: self.atoms.clone(),
                     lb: self.lb.clone(),
                     rb: self.rb.clone(),
                     ld: self.ld.clone(),
                     rc: self.rc.clone(),
-                    lw: vec![disj],
-                    rw: Vec::new(),
+                    lw: lw_new,
+                    rw: BTreeSet::new(),
                 });
             }
             return PSstepResult::Waiting(new_psw);
@@ -245,14 +239,16 @@ impl PS {
         if let Some(conjuncts) = self.rc.pop() {
             let mut new_psw = Vec::with_capacity(conjuncts.len());
             for conj in conjuncts.into_iter() {
+                let mut rw_new = BTreeSet::new();
+                rw_new.insert(conj);
                 new_psw.push(PSW {
                     atoms: self.atoms.clone(),
                     lb: self.lb.clone(),
                     rb: self.rb.clone(),
                     ld: self.ld.clone(),
                     rc: self.rc.clone(),
-                    lw: Vec::new(),
-                    rw: vec![conj],
+                    lw: BTreeSet::new(),
+                    rw: rw_new,
                 });
             }
             return PSstepResult::Waiting(new_psw);
@@ -284,14 +280,16 @@ impl PSI {
     fn step(self) -> Vec<PSW> {
         let mut output = Vec::with_capacity(self.rb.len());
         for rb in self.rb.into_iter() {
+            let mut new_rw = BTreeSet::new();
+            new_rw.insert(rb);
             output.push(PSW {
                 atoms: BTreeMap::new(),
-                lb: Vec::new(),
-                rb: Vec::new(),
+                lb: BTreeSet::new(),
+                rb: BTreeSet::new(),
                 ld: Vec::new(),
                 rc: Vec::new(),
                 lw: self.lb.clone(),
-                rw: vec![rb],
+                rw: new_rw,
             });
         }
         return output;
@@ -325,6 +323,6 @@ impl PSI {
             .into_iter()
             //.map(|psi| psi.is_valid())
             .fold(false, |acc, psw| acc || psw.is_valid())
-        //.reduce(|| false, |a, b| a || b)
+        //           .reduce(|| false, |a, b| a || b)
     }
 }
