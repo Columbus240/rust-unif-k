@@ -7,6 +7,7 @@ use std::collections::btree_set::BTreeSet;
 
 mod decider;
 mod fineform;
+mod fineform_correct;
 //mod lazy_decider;
 //mod lazy_nnf;
 mod nnf;
@@ -21,46 +22,9 @@ fn main() {
         .build_global()
         .unwrap();
 
-    /*
-    let mut bb = BTreeSet::new();
-    bb.insert(FineForm::Top.dia());
-    bb.insert(FineForm::Node(Box::new(FFNode {
-        atoms: BTreeMap::new(),
-        dia_branch: Some(FineForm::Top.dia()),
-        box_branches: {
-            let mut bb = BTreeSet::new();
-            bb.insert(FineForm::Top);
-            bb
-        },
-    })));
-    let a = FineForm::Node(Box::new(FFNode {
-    atoms: BTreeMap::new(),
-    dia_branch: None,
-    box_branches: bb,
-    }));
-    println!("a: {}", print_formula_beautiful(&a.to_nnf().simpl_slow()));
-    assert_eq!(FineForm::box_n_bot(0), FineForm::bot());
-    assert_eq!(FineForm::box_n_bot(1), FineForm::box_bot());
-    let b2 = FineForm::box_n_bot(2).to_nnf().simpl_slow();
-    let b3 = FineForm::box_n_bot(3).to_nnf().simpl_slow();
-    println!("b2: {:?}, {}", print_formula_beautiful(&b2), NNF::equiv_dec(a.to_nnf(), b2.clone()));
-    println!("b3: {:?}, {}", print_formula_beautiful(&b3), NNF::equiv_dec(a.to_nnf(), b3.clone()));
-
-    let bbb = NNF::Bot.boxx().boxx();
-    let bbbb = bbb.clone().boxx();
-    let bdt = NNF::Top.dia().boxx();
-
-    let c = NNF::or( bbb.clone(), NNF::and( bbbb.clone(), bdt.clone() ) );
-    println!("c: {:?}, {}", print_formula_beautiful(&c), NNF::equiv_dec(a.to_nnf(), c));
-    let d = NNF::and( NNF::or( bbb.clone(), bbbb.clone() ), NNF::or( bbb.clone(), bdt.clone() ) ).simpl_slow();
-    println!("d: {:?}, {}", print_formula_beautiful(&d), NNF::equiv_dec(a.to_nnf(), d));
-    let e = NNF::and( bbbb.clone(), NNF::or( bbb.clone(), bdt.clone() ) ).simpl_slow();
-    println!("e: {:?}, {}", print_formula_beautiful(&e), NNF::equiv_dec(a.to_nnf(), e));
-    let f = NNF::or( NNF::and( bbbb.clone(), bbb.clone() ), NNF::and( bbbb.clone(), bdt.clone() ) ).simpl_slow();
-    println!("f: {:?}, {}", print_formula_beautiful(&f), NNF::equiv_dec(a.to_nnf(), f));
-    let g = NNF::or( bbb.clone(), NNF::and( bbbb.clone(), bdt.clone() ) ).simpl_slow();
-    println!("g: {:?}, {}", print_formula_beautiful(&g), NNF::equiv_dec(a.to_nnf(), g));
-    */
+    for i in fineform_correct::PowersetIter::new(20).step_by(0xFFFF) {
+        println!("{:?}", i);
+    }
 
     let literals = {
         let base0 = BTreeMap::new();

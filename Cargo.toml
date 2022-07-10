@@ -9,6 +9,9 @@ edition = "2021"
 chrono = "*"
 rayon = "*"
 proptest = "*"
+num-bigint = "*"
+num-traits = "*"
+bit-vec = "*"
 
 [profile.release]
 debug = true
