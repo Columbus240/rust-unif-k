@@ -1,6 +1,8 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::nnf::NNF;
+
+use super::clauses::push_if_not_exists;
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum LeftRight {
@@ -61,15 +63,58 @@ pub struct PSI {
 
 impl PSI {
     pub fn new_empty() -> PSI {
-	PSI {
-	    atoms: BTreeMap::new(),
-	    lb: Vec::new(),
-	    rb: Vec::new(),
-	}
+        PSI {
+            atoms: BTreeMap::new(),
+            lb: Vec::new(),
+            rb: Vec::new(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
         self.atoms.is_empty() && self.lb.is_empty() && self.rb.is_empty()
+    }
+
+    /// requires that the two sets don't intersect.
+    /// Returns `None` if the resulting sequent is trivially valid.
+    pub fn substitute_top_bot(
+        mut self,
+        subst_top: &BTreeSet<usize>,
+        subst_bot: &BTreeSet<usize>,
+    ) -> Option<PSI> {
+        // if the two sets intersect, abort
+        if let Some(_) = subst_top.intersection(&subst_bot).next() {
+            unreachable!();
+        }
+
+        for prop_top in subst_top.iter() {
+            match self.atoms.remove(prop_top) {
+                None | Some(LeftRight::Left) => {}
+                Some(LeftRight::Right) => {
+                    // this sequent is trivial
+                    return None;
+                }
+            }
+        }
+
+        for prop_bot in subst_bot.iter() {
+            match self.atoms.remove(prop_bot) {
+                None | Some(LeftRight::Right) => {}
+                Some(LeftRight::Left) => {
+                    // this sequent is trivial
+                    return None;
+                }
+            }
+        }
+
+	// now perform the substitution on the boxed formulae
+	for box_left in self.lb.iter_mut() {
+	    *box_left = box_left.clone().substitute_top_bot(subst_top, subst_bot).simpl();
+	}
+	for box_right in self.lb.iter_mut() {
+	    *box_right = box_right.clone().substitute_top_bot(subst_top, subst_bot).simpl();
+	}
+	// and simplify the boxed formulae
+	return Some(self)
     }
 
     // Keep the left and right half of the sequent separate
@@ -173,10 +218,10 @@ impl PSW {
                     self.ld.push(disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    self.lb.push(*phi);
+		    push_if_not_exists(&mut self.lb, *phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.rb.push(phi.neg());
+		    push_if_not_exists(&mut self.rb, phi.neg());
                 }
             }
         }
@@ -205,10 +250,10 @@ impl PSW {
                     new_right_waiting.append(&mut disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    self.rb.push(*phi);
+		    push_if_not_exists(&mut self.rb, *phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.lb.push(phi.neg());
+                    push_if_not_exists(&mut self.lb, phi.neg());
                 }
             }
         }

@@ -3,4 +3,4 @@ mod sequents;
 mod validity;
 
 pub use clauses::ClauseWaitingConj;
-pub use clauses::ClauseSetWaiting;
+pub use clauses::*;

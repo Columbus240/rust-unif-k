@@ -3,18 +3,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use super::sequents::*;
 use crate::nnf::NNF;
 
-fn push_if_not_exists<T : PartialEq>(vec : &mut Vec<T>, t : T) {
+pub fn push_if_not_exists<T: PartialEq>(vec: &mut Vec<T>, t: T) {
     let mut exists = false;
 
     for t0 in vec.iter() {
-	if t == *t0 {
-	    exists = true;
-	    break;
-	}
+        if t == *t0 {
+            exists = true;
+            break;
+        }
     }
 
     if !exists {
-	vec.push(t);
+        vec.push(t);
     }
 }
 
@@ -112,9 +112,9 @@ impl ClauseWaitingConj {
                         rb: ps.rb,
                     };
                     if new_psi.atoms.is_empty() {
-			push_if_not_exists(&mut self.atom_sequents, new_psi);
+                        push_if_not_exists(&mut self.atom_sequents, new_psi);
                     } else {
-			push_if_not_exists(&mut self.irreducibles, new_psi);
+                        push_if_not_exists(&mut self.irreducibles, new_psi);
                     }
                 } else {
                     self.disj_sequents.push(PSD {
@@ -167,11 +167,65 @@ impl ClauseAtoms {
         }
         return None;
     }
+
+    fn unifiability_simplify(mut self) -> ClauseAtoms {
+        // if there is a sequent of the form `p ⇒ ø`, then replace `p` everywhere by `⊥`.
+        // if there is a sequent of the form `ø ⇒ p`, then replace `p` everywhere by `T`.
+
+        let mut require_top: BTreeSet<usize> = BTreeSet::new();
+        let mut require_bot: BTreeSet<usize> = BTreeSet::new();
+
+        for sequent in self.irreducibles.iter() {
+            if sequent.atoms.len() == 1 && sequent.rb.is_empty() && sequent.lb.is_empty() {
+                match sequent.atoms.iter().next().unwrap() {
+                    (i, LeftRight::Left) => require_bot.insert(*i),
+                    (i, LeftRight::Right) => require_top.insert(*i),
+                };
+            }
+        }
+
+        // If the two sets overlap, then we are contradictory.
+        if let Some(_) = require_top.intersection(&require_bot).next() {
+            self.irreducibles.clear();
+            self.irreducibles.push(PSI::new_empty());
+            return ClauseAtoms {
+                irreducibles: self.irreducibles,
+                atom_sequents: self.atom_sequents,
+            };
+        }
+
+        let mut new_sequents = Vec::with_capacity(self.irreducibles.len());
+
+        // is true, if further simplifications are possible
+        let mut simplify_further = false;
+
+        // Otherwise, perform the substitutions. Because the
+        // substitutions are so simple, a lot of simplifications can
+        // happen now.
+        for sequent in self.irreducibles.into_iter() {
+            if let Some(seq) = sequent.substitute_top_bot(&require_top, &require_bot) {
+                if seq.atoms.len() == 1 && seq.lb.is_empty() && seq.rb.is_empty() {
+                    simplify_further = true;
+                }
+                new_sequents.push(seq);
+            }
+        }
+        self.irreducibles = new_sequents;
+
+        if simplify_further {
+            self.unifiability_simplify()
+        } else {
+            ClauseAtoms {
+                irreducibles: Vec::new(),
+                atom_sequents: self.irreducibles,
+            }
+        }
+    }
 }
 
 /// A clause that only consists of irreducible sequents.
 /// I.e. each sequent has at least one atom on each side.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ClauseIrred {
     irreducibles: Vec<PSI>,
 }
@@ -192,64 +246,40 @@ impl ClauseIrred {
     }
 
     fn simplify(mut self) -> ClauseIrred {
-	let mut new_sequents : Vec<PSI> = Vec::with_capacity(self.irreducibles.len());
+        let mut new_sequents: Vec<PSI> = Vec::with_capacity(self.irreducibles.len());
 
-	'sequent: for sequent in self.irreducibles.into_iter() {
-	    if sequent.is_empty() {
-		// This sequent is contradictory, making the whole clause contradictory.
-		new_sequents.clear();
-		new_sequents.push(sequent);
-		break;
-	    }
+        'sequent: for sequent in self.irreducibles.into_iter() {
+            if sequent.is_empty() {
+                // This sequent is contradictory, making the whole clause contradictory.
+                new_sequents.clear();
+                new_sequents.push(sequent);
+                break;
+            }
 
-	    // Remove trivially valid sequents
-	    // namely those which have a boxed formula on both sides.
-	    for left_box in sequent.lb.iter() {
-		for right_box in sequent.rb.iter() {
-		    if left_box == right_box {
-			continue 'sequent;
-		    }
-		}
-	    }
+            // Remove trivially valid sequents
+            // namely those which have a boxed formula on both sides.
+            for left_box in sequent.lb.iter() {
+                for right_box in sequent.rb.iter() {
+                    if left_box == right_box {
+                        continue 'sequent;
+                    }
+                }
+            }
 
-	    // Remove duplicate sequents
-	    push_if_not_exists(&mut new_sequents, sequent);
-	}
+            // Remove duplicate sequents
+            push_if_not_exists(&mut new_sequents, sequent);
+        }
 
-	self.irreducibles = new_sequents;
-	self
+        self.irreducibles = new_sequents;
+        self
     }
 
-    fn unifiability_simplify(&mut self) {
-	// if there is a sequent of the form `p ⇒ ø`, then replace `p` everywhere by `⊥`.
-	// if there is a sequent of the form `ø ⇒ p`, then replace `p` everywhere by `T`.
-
-	let mut require_top : BTreeSet<usize> = BTreeSet::new();
-	let mut require_bot : BTreeSet<usize> = BTreeSet::new();
-
-	for sequent in self.irreducibles.iter() {
-	    if sequent.atoms.len() == 1 && sequent.rb.is_empty() && sequent.lb.is_empty() {
-		match sequent.atoms.iter().next().unwrap() {
-		    (i, LeftRight::Left) => require_bot.insert(*i),
-		    (i, LeftRight::Right) => require_top.insert(*i),
-		};
-	    }
-	}
-
-	// If the two sets overlap, then we are contradictory.
-	if let Some(_) = require_top.intersection(&require_bot).next() {
-	    self.irreducibles.clear();
-	    self.irreducibles.push(PSI::new_empty());
-	    return;
-	}
-
-	// Otherwise, perform the substitutions. Because the
-	// substitutions are so simple, a lot of simplifications can
-	// happen now.
-	for sequent in self.irreducibles.iter_mut() {
-	    todo!();
-	}
-	todo!();
+    fn unifiability_simplify(mut self) -> ClauseAtoms {
+        ClauseAtoms {
+            irreducibles: self.irreducibles,
+            atom_sequents: Vec::new(),
+        }
+        .unifiability_simplify()
     }
 
     /// Returns `Some(false)` if the clause contains an empty sequent.
@@ -268,25 +298,25 @@ impl ClauseIrred {
     }
 
     fn simple_check_unifiability(&self) -> Option<bool> {
-	if let Some(b) = self.simple_check_validity() {
-	    return Some(b);
-	}
+        if let Some(b) = self.simple_check_validity() {
+            return Some(b);
+        }
 
-	// Check whether the left/right atoms are all disjoint.
-	let mut atoms = self.irreducibles[0].atoms.clone();
-	for sequent in &self.irreducibles[1..] {
-	    for (k, v) in atoms.clone().iter() {
-		if sequent.atoms.get(k) != Some(v) {
-		    atoms.remove(k);
-		}
-	    }
-	}
-	if !atoms.is_empty() {
-	    // We found some intersection, so * -> top or * -> bot are unifiers.
-	    return Some(true);
-	}
+        // Check whether the left/right atoms are all disjoint.
+        let mut atoms = self.irreducibles[0].atoms.clone();
+        for sequent in &self.irreducibles[1..] {
+            for (k, v) in atoms.clone().iter() {
+                if sequent.atoms.get(k) != Some(v) {
+                    atoms.remove(k);
+                }
+            }
+        }
+        if !atoms.is_empty() {
+            // We found some intersection, so * -> top or * -> bot are unifiers.
+            return Some(true);
+        }
 
-	return None;
+        return None;
     }
 
     pub fn display_beautiful<'a>(&'a self) -> ClauseIrredDisplayBeautiful<'a> {
@@ -346,12 +376,16 @@ pub struct ClauseSetAtoms {
     waiting_atoms: Vec<ClauseAtoms>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ClauseSetIrred {
     pub irreducibles: Vec<ClauseIrred>,
 }
 
 impl ClauseSetIrred {
+    pub fn from_nnf(nnf: NNF) -> ClauseSetIrred {
+        ClauseSetAtoms::from_nnf(nnf).process_atoms()
+    }
+
     pub fn to_nnf_boxed(&self) -> NNF {
         NNF::Or(
             self.irreducibles
@@ -398,19 +432,46 @@ impl ClauseSetIrred {
         new_clause_set.process_atoms().is_valid()
     }
 
-    pub fn is_unifiable(&self) -> Option<bool> {
-        let mut accumulator = None;
-        for clause in self.irreducibles.iter() {
+    pub fn simplify_unifiability(mut self) -> ClauseSetIrred {
+        let initial_length = self.irreducibles.len();
+        let mut new_clauses = Vec::with_capacity(initial_length);
+        for mut clause in self.irreducibles.into_iter() {
+            let clause = clause.simplify().unifiability_simplify();
+            new_clauses.push(clause);
+        }
+        let new_clause_set = ClauseSetAtoms {
+            irreducibles: Vec::new(),
+            waiting_atoms: new_clauses,
+        }
+        .process_atoms();
+        if new_clause_set.irreducibles.len() != initial_length {
+            new_clause_set.simplify_unifiability()
+        } else {
+            new_clause_set
+        }
+    }
+
+    pub fn is_unifiable(mut self) -> Option<bool> {
+        if self.irreducibles.is_empty() {
+            return Some(false);
+        }
+
+        let mut maybe_unifiable = false;
+
+        for mut clause in self.irreducibles.into_iter() {
             match clause.simple_check_unifiability() {
-                None => accumulator = Some(None),
-                Some(true) => accumulator = Some(Some(true)),
-                Some(false) => match accumulator {
-                    None => accumulator = Some(Some(false)),
-                    _ => {}
-                },
+                None => {
+                    maybe_unifiable = true;
+                }
+                Some(true) => return Some(true),
+                Some(false) => {}
             }
         }
-	return accumulator.unwrap_or(Some(false));
+        if maybe_unifiable {
+            return None;
+        } else {
+            return Some(false);
+        }
     }
 }
 
@@ -446,14 +507,14 @@ impl ClauseSetWaiting {
                     }));
                 } else {
                     // There are no remaining disjunctions on the left for this sequent,
-		    // so it is irreducible
-		    let new_psi = PSI {
+                    // so it is irreducible
+                    let new_psi = PSI {
                         atoms: waiting_disj_sequent.atoms,
                         lb: waiting_disj_sequent.lb,
                         rb: waiting_disj_sequent.rb,
                     };
 
-		    push_if_not_exists(&mut clause.irreducibles, new_psi);
+                    push_if_not_exists(&mut clause.irreducibles, new_psi);
                 }
             } else {
                 // `clause` is irreducible
@@ -491,6 +552,10 @@ impl ClauseSetWaiting {
 }
 
 impl ClauseSetAtoms {
+    pub fn from_nnf(nnf: NNF) -> ClauseSetAtoms {
+        ClauseSetWaiting::from_nnf(nnf).process_disjs()
+    }
+
     fn from_psw(psw: PSW) -> ClauseSetAtoms {
         let clause_waiting_disj = ClauseWaitingConj::from_psw(psw).process_conjs();
         let clause_set_waiting = ClauseSetWaiting {
@@ -501,6 +566,22 @@ impl ClauseSetAtoms {
         clause_set_waiting.process_disjs()
     }
 
+    pub fn unifiability_simplify(mut self) -> ClauseSetAtoms {
+        let mut new_clause_atoms =
+            Vec::with_capacity(self.irreducibles.len() + self.waiting_atoms.len());
+
+        for clause_irred in self.irreducibles.into_iter() {
+            new_clause_atoms.push(clause_irred.unifiability_simplify());
+        }
+        for clause_atom in self.waiting_atoms.into_iter() {
+            new_clause_atoms.push(clause_atom.unifiability_simplify());
+        }
+        ClauseSetAtoms {
+            irreducibles: Vec::new(),
+            waiting_atoms: new_clause_atoms,
+        }
+    }
+
     pub fn process_atoms(mut self) -> ClauseSetIrred {
         let mut new_waiting_atoms: Vec<ClauseAtoms> = Vec::new();
 
@@ -509,16 +590,17 @@ impl ClauseSetAtoms {
                 // If the sequent has no atoms, split it up.
                 if !waiting_atoms_sequent.atoms.is_empty() {
                     // this sequent has atoms, so it is irreducible
-		    push_if_not_exists(&mut clause.irreducibles, waiting_atoms_sequent);
+                    push_if_not_exists(&mut clause.irreducibles, waiting_atoms_sequent);
                     new_waiting_atoms.push(clause);
                     continue;
                 }
 
                 // It is possible, that one of the newly generated sequents will be "trivially" true.
                 // In such a case it suffices to add only the rest of the clause.
-                // TODO.
+                let mut delta_waiting_atoms = Vec::with_capacity(waiting_atoms_sequent.rb.len());
+                let mut early_exit = false;
 
-                for delta in waiting_atoms_sequent.rb.into_iter() {
+                'delta: for delta in waiting_atoms_sequent.rb.into_iter() {
                     // Write down the new sequent
                     let new_psw = PSW {
                         // recall that `waiting_atoms_sequent.atoms` is empty
@@ -558,27 +640,34 @@ impl ClauseSetAtoms {
 
                         // Extend the current clause set with the new one.
                         self.irreducibles.append(&mut new_irred);
-                        new_waiting_atoms.append(&mut newest_waiting_atoms);
+                        delta_waiting_atoms.append(&mut newest_waiting_atoms);
                     } else {
                         // We have found a "trivial" branch which adds no further condition.
-                        // TODO: Remove all other `delta` branches, because they are more difficult.
+                        // Remove all other `delta` branches, because they are more difficult.
+                        // This is done by forgetting about `delta_waiting_atoms`
                         new_waiting_atoms.push(ClauseAtoms {
                             irreducibles: clause.irreducibles.clone(),
                             atom_sequents: clause.atom_sequents.clone(),
                         });
+                        early_exit = true;
+                        break 'delta;
                     }
+                }
+                if !early_exit {
+                    new_waiting_atoms.append(&mut delta_waiting_atoms);
                 }
             } else {
                 // `clause` is irreducible
 
-		let mut new_irreducibles = Vec::with_capacity(clause.irreducibles.len());
-		for sequent in clause.irreducibles.into_iter() {
-		    push_if_not_exists(&mut new_irreducibles, sequent);
-		}
-                let mut clause = ClauseIrred {
+                let mut new_irreducibles = Vec::with_capacity(clause.irreducibles.len());
+                for sequent in clause.irreducibles.into_iter() {
+                    push_if_not_exists(&mut new_irreducibles, sequent);
+                }
+                let clause = ClauseIrred {
                     irreducibles: new_irreducibles,
-                }.simplify();
-		
+                }
+                .simplify();
+
                 // if the clause is trivially valid, the whole clause set is valid
                 // if the clause is trivially contradictory, we can omit this clause
                 match clause.simple_check_validity() {

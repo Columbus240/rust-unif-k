@@ -20,10 +20,12 @@ use fineform::*;
 use crate::decider::*;
 
 fn main() {
+    /*
     rayon::ThreadPoolBuilder::new()
         .num_threads(16)
         .build_global()
         .unwrap();
+    */
 
     /*
     for i in fineform_correct::PowersetIter::new(20).step_by(0xFFFF) {
@@ -52,34 +54,63 @@ fn main() {
     // I.e. if the formula `(clause_set_irred <-> T) <-> (formula <-> T)` is valid.
     let formula_valid = formula.clone().is_valid();
     let clause_set_valid = clause_set_irred.to_nnf_boxed().is_valid();
-	if None == clause_set_irred.is_unifiable() {
+    if None == clause_set_irred.is_unifiable() {
     println!("formula b: {}", formula.display_beautiful());
     println!("clause_set: {:?}", clause_set_irred);
     println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
     println!("equiv: {}", formula_valid == clause_set_valid);
     println!("unifiability: {:?}", clause_set_irred.is_unifiable());
-	}
+    }
     assert_eq!(formula_valid, clause_set_valid);
     assert_eq!(formula_valid, clause_set_irred.is_valid());
     }
     */
 
-    println!("powerset start");
+    let mut ff_iter = fineform_correct::FineFormIter::new(1);
+
     let mut i = 0;
-    let mut ff_iter = fineform_correct::FineFormIter::new(2);
     while let Some(nnf) = ff_iter.next() {
-	let clause_set_irred = ClauseSetWaiting::from_nnf(nnf.clone()).process_disjs().process_atoms();
-	if None == clause_set_irred.is_unifiable() {
-	    println!("formula b: {}", nnf.display_beautiful());
-	    println!("clause_set: {:?}", clause_set_irred);
-	    println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
-	    println!("index: {}", i);
-	}
-	i += 1;
-	if i > 1000 {
-	    break;
-	}
+	//TODO: Without simplification and using `ClauseSetIrred::from_nnf`, most problems are solvable.
+	// But using simplification, this is not the case anymore.
+	// What is the problem?
+	// And going via `ClauseSetAtoms::unifiability_simplify` it also doesn't work.
+	//let nnf = nnf.simpl();
+	//let clause_set_atoms = ClauseSetAtoms::from_nnf(nnf.clone());
+	//let clause_set_simpl0 = clause_set_atoms.unifiability_simplify();
+	//let clause_set_irred = clause_set_simpl0.process_atoms();
+	let clause_set_irred = ClauseSetIrred::from_nnf(nnf.clone());
+        if None == clause_set_irred.clone().is_unifiable() {
+            println!("formula b: {}", nnf.display_beautiful());
+            //println!("clause_set: {:?}", clause_set_irred);
+            println!("clause_set : {:?}", clause_set_irred);
+            //println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
+            println!(
+                "clause_set b: {}",
+                clause_set_irred.to_nnf_boxed().display_beautiful()
+            );
+            println!("index: {}", i);
+        }
+        i += 1;
+        if i % 10 == 0 {
+            println!(
+                "current index: {}, current level: {}",
+                i,
+                ff_iter.get_curr_level()
+            );
+        }
+        if ff_iter.get_curr_level() > 1 {
+            break;
+        }
+        if i > 1000 {
+            break;
+        }
     }
     println!("level: {}, count {}", ff_iter.get_curr_level(), i);
-    println!("powerset end");
+    let nnf = ff_iter.next().unwrap();
+    println!("formula b: {}", nnf.display_beautiful());
+    let clause_set_atoms = ClauseSetAtoms::from_nnf(nnf.clone());
+    println!("clause_set_atoms : {:?}\n", clause_set_atoms);
+    let clause_set_simpl0 = clause_set_atoms.unifiability_simplify();
+    //println!("clause_set: {:?}", clause_set_irred);
+    println!("clause_set_simpl0 : {:?}", clause_set_simpl0);
 }

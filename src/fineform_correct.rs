@@ -114,7 +114,7 @@ impl FineFormIter {
                     }
                 }
 
-                let out: NNF = NNF::And(literals_vec).simpl();
+                let out: NNF = NNF::And(literals_vec);
                 self.curr_level_formulae.push(out.clone());
                 return new_level;
             } else {

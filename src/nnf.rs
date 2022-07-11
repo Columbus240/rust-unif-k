@@ -1,5 +1,7 @@
 use rayon::prelude::*;
 
+use std::collections::BTreeSet;
+
 mod display;
 pub use display::*;
 
@@ -194,6 +196,58 @@ impl NNF {
     #[allow(dead_code)]
     pub fn simpl_slow(self) -> NNF {
         self.simpl_actual(true)
+    }
+
+    pub fn substitute_top_bot(
+        mut self,
+        subst_top: &BTreeSet<usize>,
+        subst_bot: &BTreeSet<usize>,
+    ) -> NNF {
+        // if the two sets intersect, abort
+        if let Some(_) = subst_top.intersection(&subst_bot).next() {
+            unreachable!();
+        }
+
+	match self {
+	    NNF::Top => NNF::Top,
+	    NNF::Bot => NNF::Bot,
+	    NNF::AtomPos(i) => {
+		if subst_top.contains(&i) {
+		    NNF::Top
+		} else if subst_bot.contains(&i) {
+		    NNF::Bot
+		} else {
+		    NNF::AtomPos(i)
+		}
+	    },
+	    NNF::AtomNeg(i) => {
+		if subst_top.contains(&i) {
+		    NNF::Bot
+		} else if subst_bot.contains(&i) {
+		    NNF::Top
+		} else {
+		    NNF::AtomNeg(i)
+		}
+	    },
+	    NNF::And(mut conjuncts) => {
+		for conjunct in conjuncts.iter_mut() {
+		    *conjunct = conjunct.clone().substitute_top_bot(subst_top, subst_bot);
+		}
+		NNF::And(conjuncts)
+	    },
+	    NNF::Or(mut disjuncts) => {
+		for disjunct in disjuncts.iter_mut() {
+		    *disjunct = disjunct.clone().substitute_top_bot(subst_top, subst_bot);
+		}
+		NNF::Or(disjuncts)
+	    },
+	    NNF::NnfBox(phi) => {
+		NNF::NnfBox(Box::new(phi.substitute_top_bot(subst_top, subst_bot)))
+	    },
+	    NNF::NnfDia(phi) => {
+		NNF::NnfDia(Box::new(phi.substitute_top_bot(subst_top, subst_bot)))
+	    },
+	}
     }
 
     // substitutes each occurrence of a variable by the formula `sigma`
