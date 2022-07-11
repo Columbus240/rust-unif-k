@@ -13,10 +13,6 @@ enum LeftRight {
     Right,
 }
 
-// Its possible to replace `la` and `ra` by a single
-// `BTreeMap<usize, bool>`, where true/false stand for left/right or similar.
-// (use an enum, to simplify remembering the right thing)
-// This way (using `try_insert`) its easier to check whether a sequent is valid.
 struct PSW {
     // atoms (left or right)
     atoms: BTreeMap<usize, LeftRight>,

@@ -69,6 +69,10 @@ impl NNF {
         NNF::Or(vec![phi.neg(), psi])
     }
 
+    pub fn equiv_formula(phi : NNF, psi: NNF) -> NNF {
+	NNF::And(vec![NNF::impli(phi.clone(), psi.clone()), NNF::impli(psi, phi)])
+    }
+
     // the actual implementation of `simpl` and `simpl_slow`
     fn simpl_actual(self, slow: bool) -> NNF {
         match self {
@@ -94,6 +98,9 @@ impl NNF {
                     })
                     .flatten()
                 {
+		    if phi == NNF::Bot {
+			return NNF::Bot;
+		    }
                     let phi_neg = phi.neg();
 
                     for psi in new_conjuncts.iter() {
@@ -141,11 +148,14 @@ impl NNF {
                     })
                     .flatten()
                 {
+		    if phi == NNF::Top {
+			return NNF::Top;
+		    }
                     let phi_neg = phi.neg();
 
                     for psi in new_disjuncts.iter() {
                         if phi == *psi {
-                            continue;
+                            continue 'outer;
                         }
                         if slow {
                             if NNF::impli(phi.clone(), psi.clone()).is_valid() {
@@ -212,16 +222,18 @@ impl NNF {
 use proptest::prelude::*;
 
 #[allow(dead_code)]
-fn arb_nnf() -> impl Strategy<Value = NNF> {
+pub fn arb_nnf() -> impl Strategy<Value = NNF> {
     let leaf = prop_oneof![
-        Just(NNF::Top),
-        Just(NNF::Bot),
-        any::<usize>().prop_map(NNF::AtomPos),
-        any::<usize>().prop_map(NNF::AtomNeg),
+        //Just(NNF::Top),
+        //Just(NNF::Bot),
+	Just(NNF::AtomPos(0)),
+//	Just(NNF::AtomNeg(0)),
+//        any::<usize>().prop_map(NNF::AtomPos),
+//        any::<usize>().prop_map(NNF::AtomNeg),
     ];
     leaf.prop_recursive(
         8,   // 8 levels deep
-        256, // Maximum 256 nodes
+        512, // Maximum 256 nodes
         10,  // Up to 10 items per collection
         |inner| {
             prop_oneof![

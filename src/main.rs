@@ -1,4 +1,5 @@
 #![feature(once_cell)]
+#![allow(dead_code)]
 
 #[allow(unused_imports)]
 use std::collections::btree_map::BTreeMap;
@@ -16,76 +17,69 @@ mod powerset;
 #[allow(unused_imports)]
 use fineform::*;
 
+use crate::decider::*;
+
 fn main() {
     rayon::ThreadPoolBuilder::new()
         .num_threads(16)
         .build_global()
         .unwrap();
 
+    /*
     for i in fineform_correct::PowersetIter::new(20).step_by(0xFFFF) {
         println!("{:?}", i);
     }
-
-    let literals = {
-        let base0 = BTreeMap::new();
-        let mut base1 = BTreeMap::new();
-        let mut base2 = BTreeMap::new();
-        let mut base3 = BTreeMap::new();
-        let mut base4 = BTreeMap::new();
-        let mut base5 = BTreeMap::new();
-        let mut base6 = BTreeMap::new();
-        let mut base7 = BTreeMap::new();
-        let mut base8 = BTreeMap::new();
-        base1.insert(0, true);
-        base2.insert(0, false);
-        base3.insert(1, true);
-        base4.insert(1, false);
-        base5.insert(0, true);
-        base5.insert(1, true);
-        base6.insert(0, false);
-        base6.insert(1, false);
-        base7.insert(0, true);
-        base7.insert(1, false);
-        base8.insert(0, false);
-        base8.insert(1, true);
-        vec![base0, base1, base2, base3, base4, base5, base6, base7, base8]
-    };
-
-    /*
-    let unifiers = fineform::enumerate_unifiers(1);
-
-    /*
-    unifiers
-        .into_iter()
-        .map(|(ff, nnf)| {
-            let string = print_formula_beautiful(&nnf);
-            println!("{}", string);
-        })
-        .for_each(drop);
     */
 
-    let formulae = fineform::enumerate_formulae(literals.into_iter(), 1);
-
-    formulae
-        .into_iter()
-        .map(|(ff, nnf)| {
-	    println!("{}", nnf.display_beautiful());
-        })
-        .for_each(drop);
-
+    #[allow(unused_imports)]
+    use proptest::strategy::Strategy;
+    #[allow(unused_imports)]
+    use proptest::strategy::ValueTree;
+    #[allow(unused_imports)]
+    use proptest::test_runner::TestRunner;
+    let mut runner = TestRunner::default();
     /*
-    let mut i = 0;
-    let len = formulae.len();
+    for _ in 0..10000 {
+    use nnf::NNF;
+    let formula: NNF = nnf::arb_nnf().new_tree(&mut runner).unwrap().current().simpl();
+    //let formula: NNF = NNF::And(vec![NNF::AtomPos(0), NNF::NnfBox(Box::new(NNF::Top))]);
+    //let formula: NNF = NNF::NnfBox(Box::new(NNF::Top));
+    let clause_set_waiting = ClauseSetWaiting::from_nnf(formula.clone());
+    let clause_set_disj = clause_set_waiting.process_disjs();
+    let clause_set_irred = clause_set_disj.process_atoms();
 
-    for (_, nnf) in formulae.into_iter() {
-        println!("\\section{{${}$}}", nnf.display_latex());
-        for (_, unif) in unifiers.iter() {
-            if nnf.substitute(unif).is_valid() {
-                println!("${}$ \\\\", unif.display_latex());
-            }
-        }
-        i += 1;
+    // Now, the algorithm is correct if, `clause_set_irred` is valid iff `formula` is valid.
+    // I.e. if the formula `(clause_set_irred <-> T) <-> (formula <-> T)` is valid.
+    let formula_valid = formula.clone().is_valid();
+    let clause_set_valid = clause_set_irred.to_nnf_boxed().is_valid();
+	if None == clause_set_irred.is_unifiable() {
+    println!("formula b: {}", formula.display_beautiful());
+    println!("clause_set: {:?}", clause_set_irred);
+    println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
+    println!("equiv: {}", formula_valid == clause_set_valid);
+    println!("unifiability: {:?}", clause_set_irred.is_unifiable());
+	}
+    assert_eq!(formula_valid, clause_set_valid);
+    assert_eq!(formula_valid, clause_set_irred.is_valid());
     }
     */
-    */
+
+    println!("powerset start");
+    let mut i = 0;
+    let mut ff_iter = fineform_correct::FineFormIter::new(2);
+    while let Some(nnf) = ff_iter.next() {
+	let clause_set_irred = ClauseSetWaiting::from_nnf(nnf.clone()).process_disjs().process_atoms();
+	if None == clause_set_irred.is_unifiable() {
+	    println!("formula b: {}", nnf.display_beautiful());
+	    println!("clause_set: {:?}", clause_set_irred);
+	    println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
+	    println!("index: {}", i);
+	}
+	i += 1;
+	if i > 1000 {
+	    break;
+	}
+    }
+    println!("level: {}, count {}", ff_iter.get_curr_level(), i);
+    println!("powerset end");
 }

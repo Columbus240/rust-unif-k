@@ -11,7 +11,7 @@ rayon = "*"
 proptest = "*"
 num-bigint = "*"
 num-traits = "*"
-bit-vec = "*"
+bitvec = "*"
 
 [profile.release]
 debug = true

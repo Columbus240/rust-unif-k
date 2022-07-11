@@ -585,19 +585,16 @@ impl<'a> Iterator for TriplePowersetIterator<'a> {
         }
     }
 }
+
 fn enumerate_step(
     literals: impl Iterator<Item = BTreeMap<usize, bool>>,
     input: Vec<(FineForm, NNF)>,
 ) -> Vec<(FineForm, NNF)> {
     let mut output = input.clone();
 
-    let input_ff = input
-        .iter()
-        .map(|(ff, _nnf)| ff.clone())
-        .collect::<Vec<_>>();
-
     let powerset = TriplePowersetIterator::new(input.as_slice());
 
+    #[allow(unused_variables)]
     let start_time = chrono::offset::Local::now();
 
     for base in literals {
@@ -639,13 +636,15 @@ fn enumerate_step(
                 }
             } else {
                 output.push((new_ff.clone(), new_nnf));
-                let now = chrono::offset::Local::now();
-                eprintln!(
-                    "output.len: {} at {}, since started {}",
-                    output.len(),
-                    now,
-                    now.signed_duration_since(start_time)
-                );
+                /*
+                        let now = chrono::offset::Local::now();
+                        eprintln!(
+                            "output.len: {} at {}, since started {}",
+                            output.len(),
+                            now,
+                            now.signed_duration_since(start_time)
+                        );
+                */
             }
 
             if output.len() >= 2000 {
