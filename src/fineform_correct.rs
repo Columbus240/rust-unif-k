@@ -147,7 +147,7 @@ impl Iterator for FineFormIter {
     fn next(&mut self) -> Option<NNF> {
         if self.full_powerset == None {
             self.full_powerset = Some(BigInt::zero());
-            return Some(NNF::Bot);
+            return Some(NNF::Top);
         }
 
 	let full_powerset = self.full_powerset.as_ref().unwrap();

@@ -1,0 +1,10 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 1f7f396b2d03f47d3e27ee02c2af8a1c80c78ac54e1ccb5c069c9aa8b4274ff5 # shrinks to formula = NnfBox(Bot)
+cc 60391eb2b254c869aba19299b1b79be70e826679d39bee9a0e1d935223683b9a # shrinks to formula = And([AtomPos(0), NnfBox(Top)])
+cc f41615a63cc5e15de8f6d5726fe781e08b69851c904ac69f2ea655cf9a09a84c # shrinks to formula = NnfBox(Top)
+cc 157776faf45a4344538c47c76fec9ce06303dc94fa8590f67a2b3dd2ec7cbb1a # shrinks to formula = NnfDia(Top)

@@ -1,10 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::nnf::NNF;
+use proptest_derive::Arbitrary;
 
+use crate::nnf::NNF;
 use super::clauses::push_if_not_exists;
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Arbitrary, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum LeftRight {
     Left,
     Right,
@@ -33,7 +34,7 @@ pub struct PSW {
 }
 
 /// Processing Sequent
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct PS {
     // atoms (left or right)
     pub atoms: BTreeMap<usize, LeftRight>,
@@ -61,12 +62,37 @@ pub struct PSI {
     pub rb: Vec<NNF>,
 }
 
+impl TryFrom<PS> for PSI {
+    type Error = PS;
+
+    fn try_from(value: PS) -> Result<Self, Self::Error> {
+        if !value.ld.is_empty() || !value.rc.is_empty() {
+            Err(value)
+        } else {
+            Ok(PSI {
+                atoms: value.atoms,
+                lb: value.lb,
+                rb: value.rb,
+            })
+        }
+    }
+}
+
 impl PSI {
     pub fn new_empty() -> PSI {
         PSI {
             atoms: BTreeMap::new(),
             lb: Vec::new(),
             rb: Vec::new(),
+        }
+    }
+
+    /// Is only allowed if `atoms` is empty.
+    pub fn to_psb(self) -> super::clauses::PSB {
+        assert!(self.atoms.is_empty());
+        super::clauses::PSB {
+            lb: self.lb,
+            rb: self.rb,
         }
     }
 
@@ -106,15 +132,21 @@ impl PSI {
             }
         }
 
-	// now perform the substitution on the boxed formulae
-	for box_left in self.lb.iter_mut() {
-	    *box_left = box_left.clone().substitute_top_bot(subst_top, subst_bot).simpl();
-	}
-	for box_right in self.lb.iter_mut() {
-	    *box_right = box_right.clone().substitute_top_bot(subst_top, subst_bot).simpl();
-	}
-	// and simplify the boxed formulae
-	return Some(self)
+        // now perform the substitution on the boxed formulae
+        for box_left in self.lb.iter_mut() {
+            *box_left = box_left
+                .clone()
+                .substitute_top_bot(subst_top, subst_bot)
+                .simpl();
+        }
+        for box_right in self.lb.iter_mut() {
+            *box_right = box_right
+                .clone()
+                .substitute_top_bot(subst_top, subst_bot)
+                .simpl();
+        }
+        // and simplify the boxed formulae
+        return Some(self);
     }
 
     // Keep the left and right half of the sequent separate
@@ -218,10 +250,10 @@ impl PSW {
                     self.ld.push(disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-		    push_if_not_exists(&mut self.lb, *phi);
+                    push_if_not_exists(&mut self.lb, *phi);
                 }
                 NNF::NnfDia(phi) => {
-		    push_if_not_exists(&mut self.rb, phi.neg());
+                    push_if_not_exists(&mut self.rb, phi.neg());
                 }
             }
         }
@@ -250,7 +282,7 @@ impl PSW {
                     new_right_waiting.append(&mut disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-		    push_if_not_exists(&mut self.rb, *phi);
+                    push_if_not_exists(&mut self.rb, *phi);
                 }
                 NNF::NnfDia(phi) => {
                     push_if_not_exists(&mut self.lb, phi.neg());

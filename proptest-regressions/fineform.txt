@@ -1,0 +1,16 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 5bd77ad8d26fc7641febf364ef11d0299173368a2cb2df5a2e5b738e2f733bef # shrinks to a = Top, b = Node(FFNode { atoms: {0: false}, dia_branch: Some(Top), box_branches: {Top} })
+cc ac0cf92a6b218d2385a753a806b7909baf9b387d485c7839a6667780711f993c # shrinks to a = Node(FFNode { atoms: {}, dia_branch: None, box_branches: {Top} }), b = Top
+cc 59868bfccdfd04c3c85fba5db7b4a2379a4c2e824d99ce10b6d202eb2273291f # shrinks to a = Node(FFNode { atoms: {}, dia_branch: None, box_branches: {Node(FFNode { atoms: {0: false}, dia_branch: None, box_branches: {} })} }), b = Top
+cc 2baae9fdbbe67f29a5d77e2475c911f93cf43cf91263d418ef21566ec4ba90bc # shrinks to a = Node(FFNode { atoms: {0: false}, dia_branch: Some(Top), box_branches: {Top} }), b = Node(FFNode { atoms: {}, dia_branch: None, box_branches: {Top, Node(FFNode { atoms: {}, dia_branch: None, box_branches: {} })} })
+cc 8fe903840b33d4d660adbc9300e3f940b2c9c125a0a000e2bf4336097d4034ca # shrinks to a = Node(FFNode { atoms: {}, dia_branch: Some(Node(FFNode { atoms: {}, dia_branch: Some(Top), box_branches: {} })), box_branches: {Node(FFNode { atoms: {}, dia_branch: None, box_branches: {} })} }), b = Top
+cc d9b7f5e802744049d3b5dcd9f4ca19a2c1f80c87c5e508ecfc25f7c75bcc59f7 # shrinks to a = Top, b = Node(FFNode { atoms: {}, dia_branch: Some(Top), box_branches: {} })
+cc 4cb13f3d589578a4118590ed24de67515bf7b2b8c9553fa558ee90a15be5f340 # shrinks to a = Node(FFNode { atoms: {}, dia_branch: Some(Node(FFNode { atoms: {0: false}, dia_branch: Some(Top), box_branches: {Top} })), box_branches: {Node(FFNode { atoms: {}, dia_branch: Some(Top), box_branches: {} })} }), b = Top
+cc a6f38605fa9d760d0a701e3b2590da0fb07ffd8664a3d30fd38306c37c72afbe # shrinks to a = Node(FFNode { atoms: {}, dia_branch: Some(Node(FFNode { atoms: {}, dia_branch: Some(Top), box_branches: {} })), box_branches: {Node(FFNode { atoms: {}, dia_branch: None, box_branches: {Top} })} }), b = Top
+cc 78e9c2581ec234beb6b1bd315733ad2be003d51928b5335992310b826046f43e # shrinks to a = Node(FFNode { atoms: {}, dia_branch: Some(Top), box_branches: {} }), b = Node(FFNode { atoms: {0: false}, dia_branch: Some(Top), box_branches: {} })
+cc 3f0c18abe7390531477eec300f715df420f8fad1dcbdc13fe4cb09a8c5cd7d4e # shrinks to a = Top, b = Node(FFNode { atoms: {}, dia_branch: None, box_branches: {Node(FFNode { atoms: {}, dia_branch: None, box_branches: {Top} })} })

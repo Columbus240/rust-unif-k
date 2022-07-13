@@ -1,4 +1,5 @@
 use rayon::prelude::*;
+use proptest_derive::Arbitrary;
 
 use std::collections::BTreeSet;
 
@@ -198,14 +199,18 @@ impl NNF {
         self.simpl_actual(true)
     }
 
+    /// Requires `subst_top` and `subst_bot` to be disjoint.
+    /// Every variable in `subst_top` that occurs in `self` is replaced by `NNF::Top`,
+    /// and every variable in `subst_bot` that occurs in `self` is replaced by `NNF::Bot`.
+    /// The result is returned.
     pub fn substitute_top_bot(
-        mut self,
+        self,
         subst_top: &BTreeSet<usize>,
         subst_bot: &BTreeSet<usize>,
     ) -> NNF {
         // if the two sets intersect, abort
-        if let Some(_) = subst_top.intersection(&subst_bot).next() {
-            unreachable!();
+        if !subst_top.is_disjoint(&subst_bot) {
+            panic!("substitute_top_bot requires disjoint sets as arguments");
         }
 
 	match self {
@@ -278,12 +283,12 @@ use proptest::prelude::*;
 #[allow(dead_code)]
 pub fn arb_nnf() -> impl Strategy<Value = NNF> {
     let leaf = prop_oneof![
-        //Just(NNF::Top),
-        //Just(NNF::Bot),
+        Just(NNF::Top),
+        Just(NNF::Bot),
 	Just(NNF::AtomPos(0)),
-//	Just(NNF::AtomNeg(0)),
-//        any::<usize>().prop_map(NNF::AtomPos),
-//        any::<usize>().prop_map(NNF::AtomNeg),
+	Just(NNF::AtomNeg(0)),
+        any::<usize>().prop_map(NNF::AtomPos),
+        any::<usize>().prop_map(NNF::AtomNeg),
     ];
     leaf.prop_recursive(
         8,   // 8 levels deep
