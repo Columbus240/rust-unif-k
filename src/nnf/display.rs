@@ -1,15 +1,15 @@
 use super::NNF;
 
 impl NNF {
-    pub fn display_beautiful<'a>(&'a self) -> DisplayBeautiful<'a> {
+    pub fn display_beautiful(&self) -> DisplayBeautiful {
         DisplayBeautiful { nnf: self }
     }
 
-    pub fn display_latex<'a>(&'a self) -> DisplayLaTeX<'a> {
+    pub fn display_latex(&self) -> DisplayLaTeX {
         DisplayLaTeX { nnf: self }
     }
 
-    pub fn display_spartacus<'a>(&'a self) -> DisplaySpartacus<'a> {
+    pub fn display_spartacus(&self) -> DisplaySpartacus {
         DisplaySpartacus { nnf: self }
     }
 }

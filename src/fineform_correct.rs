@@ -21,7 +21,7 @@ impl PowersetIter {
     }
 }
 
-fn bigint_to_bitvec(mut int : BigInt, len: usize) -> BitVec<u32> {
+fn bigint_to_bitvec(mut int: BigInt, len: usize) -> BitVec<u32> {
     let mut bitvec = BitVec::with_capacity(int.bits() as usize);
     for _ in 0..len {
         // Push the last bit of `int_state` to `bitvec`
@@ -47,7 +47,7 @@ impl Iterator for PowersetIter {
             // Then increment `state` by one
             // Then return the `BitVec` we created.
 
-	    let bitvec = bigint_to_bitvec(state.clone(), self.num_bits);
+            let bitvec = bigint_to_bitvec(state.clone(), self.num_bits);
 
             *state += 1;
             Some(bitvec)
@@ -88,6 +88,10 @@ impl FineFormIter {
         self.curr_level
     }
 
+    pub fn get_curr_level_len(&self) -> usize {
+        self.curr_level_formulae.len()
+    }
+
     // Returns true, if a new level started
     fn generate_next_formula_real(&mut self, new_level: bool) -> bool {
         // Only advance the `prev_level_powerset` if
@@ -114,9 +118,9 @@ impl FineFormIter {
                     }
                 }
 
-                let out: NNF = NNF::And(literals_vec);
-                self.curr_level_formulae.push(out.clone());
-                return new_level;
+                let out: NNF = NNF::And(literals_vec).simpl();
+                self.curr_level_formulae.push(out);
+                new_level
             } else {
                 // We are done with this set of formulae from the previous level.
                 // Go to the next.
@@ -124,16 +128,16 @@ impl FineFormIter {
                 // And reset the literals iterator.
                 self.literals_powerset = PowersetIter::new(self.num_variables);
                 // Then return the next element.
-                return self.generate_next_formula_real(new_level);
+                self.generate_next_formula_real(new_level)
             }
         } else {
             // `prev_level_powerset` is empty now. So we are done with this level.
-	    self.prev_level.clear();
-	    self.prev_level.append(&mut self.curr_level_formulae);
+            self.prev_level.clear();
+            self.prev_level.append(&mut self.curr_level_formulae);
             self.curr_level += 1;
             // the `literals_powerset` iterator is still fresh, so no need to update it.
             self.prev_level_powerset = PowersetIter::new(self.prev_level.len()).peekable();
-            return self.generate_next_formula_real(true);
+            self.generate_next_formula_real(true)
         }
     }
 
@@ -150,21 +154,21 @@ impl Iterator for FineFormIter {
             return Some(NNF::Top);
         }
 
-	let full_powerset = self.full_powerset.as_ref().unwrap();
+        let full_powerset = self.full_powerset.as_ref().unwrap();
 
-	if full_powerset.bits() > self.curr_level_formulae.len() as u64 {
-	    // generate a new formula and if the level didn't change, output the next formula
-	    if !self.generate_next_formula() {
-		return self.next();
-	    }
-	    // if the level did change, reset the powerset
-	    self.full_powerset = Some(BigInt::one());
-	    return self.next();
-	}
+        if full_powerset.bits() > self.curr_level_formulae.len() as u64 {
+            // generate a new formula and if the level didn't change, output the next formula
+            if !self.generate_next_formula() {
+                return self.next();
+            }
+            // if the level did change, reset the powerset
+            self.full_powerset = Some(BigInt::one());
+            return self.next();
+        }
 
-	// Otherwise return the next formula.
-	let bitvec = bigint_to_bitvec(full_powerset.clone(), full_powerset.bits() as usize);
-	let mut formula_vec = Vec::with_capacity(full_powerset.bits() as usize);
+        // Otherwise return the next formula.
+        let bitvec = bigint_to_bitvec(full_powerset.clone(), full_powerset.bits() as usize);
+        let mut formula_vec = Vec::with_capacity(full_powerset.bits() as usize);
 
         for (b, nnf) in bitvec.iter().zip(self.curr_level_formulae.iter()) {
             if *b {
@@ -172,7 +176,7 @@ impl Iterator for FineFormIter {
             }
         }
 
-	self.full_powerset = Some(full_powerset + BigInt::one());
-	return Some(NNF::Or(formula_vec));
+        self.full_powerset = Some(full_powerset + BigInt::one());
+        Some(NNF::Or(formula_vec))
     }
 }

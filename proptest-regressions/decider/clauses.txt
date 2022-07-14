@@ -8,3 +8,7 @@ cc 1f7f396b2d03f47d3e27ee02c2af8a1c80c78ac54e1ccb5c069c9aa8b4274ff5 # shrinks to
 cc 60391eb2b254c869aba19299b1b79be70e826679d39bee9a0e1d935223683b9a # shrinks to formula = And([AtomPos(0), NnfBox(Top)])
 cc f41615a63cc5e15de8f6d5726fe781e08b69851c904ac69f2ea655cf9a09a84c # shrinks to formula = NnfBox(Top)
 cc 157776faf45a4344538c47c76fec9ce06303dc94fa8590f67a2b3dd2ec7cbb1a # shrinks to formula = NnfDia(Top)
+cc 1c5b381e72869b6d94c5a66c3bfb1fbb89b16be5d8c905d0b3138e54165e8c49 # shrinks to clause = ClauseWaitingDisj { irreducibles: [], atom_sequents: [], disj_sequents: [PSD { atoms: {}, lb: [], rb: [], ld: [[And([Bot])]] }] }
+cc 194542948cd8e3217c00e71c5937b3b9f7d3f7752cf65d743ffd733acef7fb6f # shrinks to clause = ClauseWaitingDisj { irreducibles: [], atom_sequents: [], disj_sequents: [PSD { atoms: {}, lb: [], rb: [], ld: [[And([Bot]), Or([Top])]] }] }
+cc 71e27b1e5901390cdbff549e6572a138f6b60c3040d000a31b2ef3eff383cf7c # shrinks to formula = Or([NnfDia(And([Top, Bot])), NnfBox(Bot)])
+cc ca7e381879e9c06c970911721920be49bb7a757046189fd791849a375414dd21 # shrinks to clause = ClauseWaitingConj { irreducibles: {PSI { atoms: {}, lb: [], rb: [Top] }}, atom_sequents: {}, conj_disj_sequents: [] }

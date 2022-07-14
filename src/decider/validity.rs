@@ -13,6 +13,7 @@ enum LeftRight {
     Right,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 struct PSW {
     // atoms (left or right)
     atoms: BTreeMap<usize, LeftRight>,
@@ -48,6 +49,7 @@ struct PS {
     rc: Vec<Vec<NNF>>,
 }
 
+#[allow(clippy::upper_case_acronyms)]
 struct PSI {
     // left boxes
     lb: Vec<NNF>,
@@ -62,56 +64,56 @@ enum PSWstepResult {
 }
 
 impl NNF {
-    pub fn is_valid(self) -> bool {
-	// short circuit
-	match self {
-	    NNF::Bot | NNF::AtomPos(_) | NNF::AtomNeg(_) => {
-		return false;
-	    },
-	    _ => {},
-	}
+    pub fn is_valid(&self) -> bool {
+        // short circuit
+        match self {
+            NNF::Bot | NNF::AtomPos(_) | NNF::AtomNeg(_) => {
+                return false;
+            }
+            _ => {}
+        }
 
-	let result = PSW::from_nnf(self.clone()).is_valid();
-	if result {
-	    let mut file = OpenOptions::new()
-		.create(true)
-		.write(true)
-		.append(true)
-		.open("valid_formulae")
-		.unwrap();
-	    writeln!(file, "{}", self.display_spartacus()).unwrap();
-	} else {
-	    let mut file = OpenOptions::new()
-		.create(true)
-		.write(true)
-		.append(true)
-		.open("invalid_formulae")
-		.unwrap();
-	    writeln!(file, "{}", self.display_spartacus()).unwrap();
-	}
+        let result = PSW::from_nnf(self.clone()).compute_validity();
+        if result {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .append(true)
+                .open("valid_formulae")
+                .unwrap();
+            writeln!(file, "{}", self.display_spartacus()).unwrap();
+        } else {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .append(true)
+                .open("invalid_formulae")
+                .unwrap();
+            writeln!(file, "{}", self.display_spartacus()).unwrap();
+        }
 
-	result
+        result
     }
 
-    pub fn equiv_dec(phi: NNF, psi: NNF) -> bool {
-	if phi == psi {
-	    return true;
-	}
+    pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
+        if phi == psi {
+            return true;
+        }
 
-	if phi == NNF::Top {
-	    return NNF::is_valid(psi);
-	}
-	if psi == NNF::Top {
-	    return NNF::is_valid(phi);
-	}
+        if *phi == NNF::Top {
+            return NNF::is_valid(psi);
+        }
+        if *psi == NNF::Top {
+            return NNF::is_valid(phi);
+        }
 
         let mut conj = Vec::with_capacity(2);
         let phi0 = phi; //.simpl();
         let psi0 = psi; //.simpl();
         conj.push(NNF::impli(phi0.clone(), psi0.clone()));
-        conj.push(NNF::impli(psi0, phi0));
+        conj.push(NNF::impli(psi0.clone(), phi0.clone()));
         //        NNF::is_valid(NNF::And(conj).simpl())
-        NNF::is_valid(NNF::And(conj))
+        NNF::is_valid(&NNF::And(conj))
     }
 }
 
@@ -132,14 +134,16 @@ impl PSW {
         let mut new_left_waiting = Vec::with_capacity(self.lw.len());
         for left_waiting in self.lw.into_iter() {
             match left_waiting {
-                NNF::AtomPos(i) => match self.atoms.insert(i, LeftRight::Left) {
-                    Some(LeftRight::Right) => return PSWstepResult::Valid,
-                    _ => {}
-                },
-                NNF::AtomNeg(i) => match self.atoms.insert(i, LeftRight::Right) {
-                    Some(LeftRight::Left) => return PSWstepResult::Valid,
-                    _ => {}
-                },
+                NNF::AtomPos(i) => {
+                    if let Some(LeftRight::Right) = self.atoms.insert(i, LeftRight::Left) {
+                        return PSWstepResult::Valid;
+                    }
+                }
+                NNF::AtomNeg(i) => {
+                    if let Some(LeftRight::Left) = self.atoms.insert(i, LeftRight::Right) {
+                        return PSWstepResult::Valid;
+                    }
+                }
                 NNF::Bot => {
                     return PSWstepResult::Valid;
                 }
@@ -164,14 +168,16 @@ impl PSW {
         let mut new_right_waiting = Vec::with_capacity(self.rw.len());
         for right_waiting in self.rw.into_iter() {
             match right_waiting {
-                NNF::AtomPos(i) => match self.atoms.insert(i, LeftRight::Right) {
-                    Some(LeftRight::Left) => return PSWstepResult::Valid,
-                    _ => {}
-                },
-                NNF::AtomNeg(i) => match self.atoms.insert(i, LeftRight::Left) {
-                    Some(LeftRight::Right) => return PSWstepResult::Valid,
-                    _ => {}
-                },
+                NNF::AtomPos(i) => {
+                    if let Some(LeftRight::Left) = self.atoms.insert(i, LeftRight::Right) {
+                        return PSWstepResult::Valid;
+                    }
+                }
+                NNF::AtomNeg(i) => {
+                    if let Some(LeftRight::Right) = self.atoms.insert(i, LeftRight::Left) {
+                        return PSWstepResult::Valid;
+                    }
+                }
                 NNF::Bot => {
                     // do nothing
                 }
@@ -207,10 +213,10 @@ impl PSW {
         PSWstepResult::Waiting(self)
     }
 
-    fn to_ps(self) -> Option<PS> {
+    fn into_ps(self) -> Option<PS> {
         match self.step() {
             PSWstepResult::Valid => None,
-            PSWstepResult::Waiting(next) => next.to_ps(),
+            PSWstepResult::Waiting(next) => next.into_ps(),
             PSWstepResult::Next(ps) => Some(ps),
         }
     }
@@ -253,22 +259,22 @@ impl PS {
             }
             return PSstepResult::Waiting(new_psw);
         }
-        return PSstepResult::Next(PSI {
+        PSstepResult::Next(PSI {
             lb: self.lb,
             rb: self.rb,
-        });
+        })
     }
 
-    fn to_psi(self) -> Vec<PSI> {
+    fn into_psi(self) -> Vec<PSI> {
         match self.step() {
             PSstepResult::Waiting(psw_vec) => {
                 let mut output = Vec::with_capacity(psw_vec.len());
                 for psw in psw_vec {
-                    if let Some(ps) = psw.to_ps() {
-                        output.append(&mut ps.to_psi());
+                    if let Some(ps) = psw.into_ps() {
+                        output.append(&mut ps.into_psi());
                     }
                 }
-                return output;
+                output
             }
             PSstepResult::Next(psi) => vec![psi],
         }
@@ -290,37 +296,37 @@ impl PSI {
                 rw: vec![rb],
             });
         }
-        return output;
+        output
     }
 }
 
 impl PSW {
-    fn is_valid(self) -> bool {
-        match self.to_ps() {
+    fn compute_validity(self) -> bool {
+        match self.into_ps() {
             None => true,
-            Some(ps) => ps.is_valid(),
+            Some(ps) => ps.compute_validity(),
         }
     }
 }
 
 impl PS {
-    fn is_valid(self) -> bool {
-        self.to_psi()
+    fn compute_validity(self) -> bool {
+        self.into_psi()
             //.into_par_iter()
             .into_iter()
             //.map(|psi| psi.is_valid())
-            .fold(true, |acc, psi| acc && psi.is_valid())
+            .all(|psi| psi.compute_validity())
         //            .reduce(|| true, |a, b| a && b)
     }
 }
 
 impl PSI {
-    fn is_valid(self) -> bool {
+    fn compute_validity(self) -> bool {
         self.step()
             //.into_par_iter()
             .into_iter()
             //.map(|psi| psi.is_valid())
-            .fold(false, |acc, psw| acc || psw.is_valid())
+            .any(|psw| psw.compute_validity())
         //.reduce(|| false, |a, b| a || b)
     }
 }

@@ -1,7 +1,6 @@
 use rayon::prelude::*;
-use proptest_derive::Arbitrary;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 mod display;
 pub use display::*;
@@ -72,8 +71,11 @@ impl NNF {
         NNF::Or(vec![phi.neg(), psi])
     }
 
-    pub fn equiv_formula(phi : NNF, psi: NNF) -> NNF {
-	NNF::And(vec![NNF::impli(phi.clone(), psi.clone()), NNF::impli(psi, phi)])
+    pub fn equiv_formula(phi: NNF, psi: NNF) -> NNF {
+        NNF::And(vec![
+            NNF::impli(phi.clone(), psi.clone()),
+            NNF::impli(psi, phi),
+        ])
     }
 
     // the actual implementation of `simpl` and `simpl_slow`
@@ -101,9 +103,9 @@ impl NNF {
                     })
                     .flatten()
                 {
-		    if phi == NNF::Bot {
-			return NNF::Bot;
-		    }
+                    if phi == NNF::Bot {
+                        return NNF::Bot;
+                    }
                     let phi_neg = phi.neg();
 
                     for psi in new_conjuncts.iter() {
@@ -117,10 +119,8 @@ impl NNF {
                             if NNF::impli(phi.clone(), psi.neg()).is_valid() {
                                 return NNF::Bot;
                             }
-                        } else {
-                            if phi_neg == *psi {
-                                return NNF::Bot;
-                            }
+                        } else if phi_neg == *psi {
+                            return NNF::Bot;
                         }
                     }
                     new_conjuncts.push(phi);
@@ -151,9 +151,9 @@ impl NNF {
                     })
                     .flatten()
                 {
-		    if phi == NNF::Top {
-			return NNF::Top;
-		    }
+                    if phi == NNF::Top {
+                        return NNF::Top;
+                    }
                     let phi_neg = phi.neg();
 
                     for psi in new_disjuncts.iter() {
@@ -167,10 +167,8 @@ impl NNF {
                             if NNF::impli(phi_neg.clone(), psi.clone()).is_valid() {
                                 return NNF::Top;
                             }
-                        } else {
-                            if phi_neg == *psi {
-                                return NNF::Top;
-                            }
+                        } else if phi_neg == *psi {
+                            return NNF::Top;
                         }
                     }
                     new_disjuncts.push(phi);
@@ -185,8 +183,22 @@ impl NNF {
 
                 NNF::Or(new_disjuncts)
             }
-            NNF::NnfBox(phi) => NNF::NnfBox(Box::new(phi.simpl_slow())),
-            NNF::NnfDia(phi) => NNF::NnfDia(Box::new(phi.simpl_slow())),
+            NNF::NnfBox(phi) => {
+                let phi = phi.simpl_actual(slow);
+                if phi == NNF::Top {
+                    NNF::Top
+                } else {
+                    NNF::NnfBox(Box::new(phi))
+                }
+            }
+            NNF::NnfDia(phi) => {
+                let phi = phi.simpl_actual(slow);
+                if phi == NNF::Bot {
+                    NNF::Bot
+                } else {
+                    NNF::NnfDia(Box::new(phi))
+                }
+            }
         }
     }
 
@@ -209,55 +221,84 @@ impl NNF {
         subst_bot: &BTreeSet<usize>,
     ) -> NNF {
         // if the two sets intersect, abort
-        if !subst_top.is_disjoint(&subst_bot) {
+        if !subst_top.is_disjoint(subst_bot) {
             panic!("substitute_top_bot requires disjoint sets as arguments");
         }
 
-	match self {
-	    NNF::Top => NNF::Top,
-	    NNF::Bot => NNF::Bot,
-	    NNF::AtomPos(i) => {
-		if subst_top.contains(&i) {
-		    NNF::Top
-		} else if subst_bot.contains(&i) {
-		    NNF::Bot
-		} else {
-		    NNF::AtomPos(i)
-		}
-	    },
-	    NNF::AtomNeg(i) => {
-		if subst_top.contains(&i) {
-		    NNF::Bot
-		} else if subst_bot.contains(&i) {
-		    NNF::Top
-		} else {
-		    NNF::AtomNeg(i)
-		}
-	    },
-	    NNF::And(mut conjuncts) => {
-		for conjunct in conjuncts.iter_mut() {
-		    *conjunct = conjunct.clone().substitute_top_bot(subst_top, subst_bot);
-		}
-		NNF::And(conjuncts)
-	    },
-	    NNF::Or(mut disjuncts) => {
-		for disjunct in disjuncts.iter_mut() {
-		    *disjunct = disjunct.clone().substitute_top_bot(subst_top, subst_bot);
-		}
-		NNF::Or(disjuncts)
-	    },
-	    NNF::NnfBox(phi) => {
-		NNF::NnfBox(Box::new(phi.substitute_top_bot(subst_top, subst_bot)))
-	    },
-	    NNF::NnfDia(phi) => {
-		NNF::NnfDia(Box::new(phi.substitute_top_bot(subst_top, subst_bot)))
-	    },
-	}
+        match self {
+            NNF::Top => NNF::Top,
+            NNF::Bot => NNF::Bot,
+            NNF::AtomPos(i) => {
+                if subst_top.contains(&i) {
+                    NNF::Top
+                } else if subst_bot.contains(&i) {
+                    NNF::Bot
+                } else {
+                    NNF::AtomPos(i)
+                }
+            }
+            NNF::AtomNeg(i) => {
+                if subst_top.contains(&i) {
+                    NNF::Bot
+                } else if subst_bot.contains(&i) {
+                    NNF::Top
+                } else {
+                    NNF::AtomNeg(i)
+                }
+            }
+            NNF::And(mut conjuncts) => {
+                for conjunct in conjuncts.iter_mut() {
+                    *conjunct = conjunct.clone().substitute_top_bot(subst_top, subst_bot);
+                }
+                NNF::And(conjuncts)
+            }
+            NNF::Or(mut disjuncts) => {
+                for disjunct in disjuncts.iter_mut() {
+                    *disjunct = disjunct.clone().substitute_top_bot(subst_top, subst_bot);
+                }
+                NNF::Or(disjuncts)
+            }
+            NNF::NnfBox(phi) => NNF::NnfBox(Box::new(phi.substitute_top_bot(subst_top, subst_bot))),
+            NNF::NnfDia(phi) => NNF::NnfDia(Box::new(phi.substitute_top_bot(subst_top, subst_bot))),
+        }
+    }
+
+    pub fn substitute(&mut self, substitution: &BTreeMap<usize, NNF>) {
+        match self {
+            NNF::Top => {}
+            NNF::Bot => {}
+            NNF::AtomPos(atom) => {
+                if let Some(nnf) = substitution.get(atom) {
+                    *self = nnf.clone();
+                }
+            }
+            NNF::AtomNeg(atom) => {
+                if let Some(nnf) = substitution.get(atom) {
+                    *self = nnf.neg();
+                }
+            }
+            NNF::And(s) => {
+                for phi in s.iter_mut() {
+                    phi.substitute(substitution);
+                }
+            }
+            NNF::Or(s) => {
+                for phi in s.iter_mut() {
+                    phi.substitute(substitution);
+                }
+            }
+            NNF::NnfBox(phi0) => {
+                phi0.substitute(substitution);
+            }
+            NNF::NnfDia(phi0) => {
+                phi0.substitute(substitution);
+            }
+        }
     }
 
     // substitutes each occurrence of a variable by the formula `sigma`
     #[allow(dead_code)]
-    pub fn substitute(&self, sigma: &NNF) -> NNF {
+    pub fn substitute_all(&self, sigma: &NNF) -> NNF {
         let sigma_neg = sigma.neg();
         // this indirection is, so we don't need to recompute `sigma.neg()`
         // multiple times
@@ -277,6 +318,21 @@ impl NNF {
         }
     }
 }
+impl<'a> NNF {
+    pub fn iter_atoms(&'a self) -> Box<dyn Iterator<Item = usize> + 'a> {
+        use std::iter;
+        match self {
+            NNF::Top => Box::new(iter::empty()),
+            NNF::Bot => Box::new(iter::empty()),
+            NNF::AtomPos(i) => Box::new(iter::once(*i)),
+            NNF::AtomNeg(i) => Box::new(iter::once(*i)),
+            NNF::And(vec) => Box::new(vec.iter().flat_map(NNF::iter_atoms)),
+            NNF::Or(vec) => Box::new(vec.iter().flat_map(NNF::iter_atoms)),
+            NNF::NnfBox(phi) => Box::new(phi.iter_atoms()),
+            NNF::NnfDia(phi) => Box::new(phi.iter_atoms()),
+        }
+    }
+}
 
 use proptest::prelude::*;
 
@@ -285,10 +341,8 @@ pub fn arb_nnf() -> impl Strategy<Value = NNF> {
     let leaf = prop_oneof![
         Just(NNF::Top),
         Just(NNF::Bot),
-	Just(NNF::AtomPos(0)),
-	Just(NNF::AtomNeg(0)),
-        any::<usize>().prop_map(NNF::AtomPos),
-        any::<usize>().prop_map(NNF::AtomNeg),
+        any::<usize>().prop_map(|i| NNF::AtomPos(i % 5)),
+        any::<usize>().prop_map(|i| NNF::AtomNeg(i % 5)),
     ];
     leaf.prop_recursive(
         8,   // 8 levels deep
@@ -299,7 +353,7 @@ pub fn arb_nnf() -> impl Strategy<Value = NNF> {
                 prop::collection::vec(inner.clone(), 0..10).prop_map(NNF::And),
                 prop::collection::vec(inner.clone(), 0..10).prop_map(NNF::Or),
                 inner.clone().prop_map(|x| NNF::NnfBox(Box::new(x))),
-                inner.clone().prop_map(|x| NNF::NnfDia(Box::new(x))),
+                inner.prop_map(|x| NNF::NnfDia(Box::new(x))),
             ]
         },
     )
@@ -309,12 +363,12 @@ proptest! {
     #[test]
     fn simpl_equiv(a in arb_nnf()) {
     // simplification returns equivalent formulae
-    assert!(NNF::equiv_dec(a.clone(), a.clone().simpl()));
-    assert!(NNF::equiv_dec(a.clone(), a.clone().simpl_slow()));
+    assert!(NNF::equiv_dec(&a, &a.clone().simpl()));
+    assert!(NNF::equiv_dec(&a, &a.clone().simpl_slow()));
 
     // every formula is equivalent to itself, but not to its negation
-    assert!(NNF::equiv_dec(a.clone(), a.clone()));
-    assert!(!NNF::equiv_dec(a.clone(), a.neg()));
+    assert!(NNF::equiv_dec(&a, &a));
+    assert!(!NNF::equiv_dec(&a, &a.neg()));
     }
 
     #[test]

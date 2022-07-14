@@ -1,4 +1,3 @@
-use chrono;
 use std::cmp;
 use std::collections::btree_map::BTreeMap;
 use std::collections::btree_set::BTreeSet;
@@ -223,7 +222,7 @@ impl FFNode {
 
         FFNode {
             atoms: new_atoms,
-            dia_branch: dia_branch,
+            dia_branch,
             box_branches: self
                 .box_branches
                 .union(&other.box_branches)
@@ -239,9 +238,11 @@ impl FFNode {
             return Some(false);
         }
 
+        #[allow(unused_variables)]
         let mut uncertain = false;
 
         if let Some(dia) = &self.dia_branch {
+            #[allow(unused_assignments)]
             match dia.contradictory_dec() {
                 Some(false) => return Some(false),
                 Some(true) => {}
@@ -250,7 +251,6 @@ impl FFNode {
         }
 
         /* is wrong
-
            let bb_result = self
                .box_branches
                .iter()
@@ -414,7 +414,7 @@ impl FFPowerset {
         }
     }
 
-    fn to_ff(self, atoms: BTreeMap<usize, bool>) -> FineForm {
+    fn into_ff(self, atoms: BTreeMap<usize, bool>) -> FineForm {
         FineForm::Node(Box::new(FFNode {
             atoms,
             dia_branch: self.dia_branch,
@@ -430,17 +430,18 @@ impl FFPowerset {
     // Because we list (up to equivalence) all `FineForm`, we never
     // have to do an actual "or" operation.
     fn try_dia_branch_or(&self, new_pos: &FineForm) -> Option<FFPowerset> {
-        if NNF::equiv_dec(new_pos.to_nnf(), NNF::Bot) {
+        let new_pos_nnf = new_pos.to_nnf();
+        if NNF::equiv_dec(&new_pos_nnf, &NNF::Bot) {
             return None;
         }
 
-        if let Some(_) = self.dia_branch {
+        if self.dia_branch.is_some() {
             return None;
         }
 
         // If the new branch is equivalent to some box branch, then it would simplify
         for bb in self.box_branches.iter() {
-            if NNF::equiv_dec(new_pos.to_nnf(), bb.to_nnf()) {
+            if NNF::equiv_dec(&new_pos_nnf, &bb.to_nnf()) {
                 return None;
             }
         }
@@ -456,24 +457,25 @@ impl FFPowerset {
     // We can assume (w.l.o.g.) that neither part would simplify on
     // its own.
     fn try_box_branch_or(&self, new_neg: &FineForm) -> Option<FFPowerset> {
+        let new_neg_nnf = new_neg.to_nnf();
         // if `new_neg` is bot, it will appear as []top in the
         // disjunction, so it would make the disjunction valid.
-        if NNF::equiv_dec(new_neg.to_nnf(), NNF::Bot) {
+        if NNF::equiv_dec(&new_neg_nnf, &NNF::Bot) {
             return None;
         }
 
         // If the dia_branch is equivalent to the new branch, then
         // ⋄phi ∨ ⌷~phi = ⋄phi \/ ~⋄ phi = T
         if let Some(dia) = &self.dia_branch {
-            if NNF::equiv_dec(dia.to_nnf(), new_neg.to_nnf()) {
+            if NNF::equiv_dec(&dia.to_nnf(), &new_neg_nnf) {
                 return None;
             }
         }
 
         // if `new_neg` implies any of the other branches, then a simplification is possible.
         for bb in self.box_branches.iter() {
-            if NNF::impli(new_neg.to_nnf(), bb.to_nnf()).is_valid()
-                || NNF::impli(bb.to_nnf(), new_neg.to_nnf()).is_valid()
+            if NNF::impli(new_neg_nnf.clone(), bb.to_nnf()).is_valid()
+                || NNF::impli(bb.to_nnf(), new_neg_nnf.clone()).is_valid()
             {
                 return None;
             }
@@ -599,7 +601,7 @@ fn enumerate_step(
 
     for base in literals {
         for set in powerset.clone() {
-            let new_ff = set.to_ff(base.clone());
+            let new_ff = set.into_ff(base.clone());
             let new_nnf = new_ff.to_nnf();
 
             // only add `new_ff` if no such element exists in
@@ -623,7 +625,7 @@ fn enumerate_step(
                             b
                         } else {
                 */
-                NNF::equiv_dec(old_nnf.clone(), new_nnf.clone())
+                NNF::equiv_dec(old_nnf, &new_nnf)
                 //}
             });
 
@@ -780,7 +782,7 @@ proptest! {
     }
 
     if let Some(val) = a.equiv_dec(&FineForm::bot()) {
-        assert_eq!(val, NNF::equiv_dec(a_nnf.clone(),NNF::Bot));
+        assert_eq!(val, NNF::equiv_dec(&a_nnf, &NNF::Bot));
     }
 
     if let Some(val) = a.valid_dec() {
@@ -793,7 +795,7 @@ proptest! {
 
     // equivalence for FF agrees with equivalence of NNF, where they are defined
     if let Some(val) = a.equiv_dec(&b) {
-        assert_eq!(val, NNF::equiv_dec(a_nnf, b_nnf));
+        assert_eq!(val, NNF::equiv_dec(&a_nnf, &b_nnf));
     }
     }
 }

@@ -1,5 +1,4 @@
 #![feature(once_cell)]
-#![allow(dead_code)]
 
 #[allow(unused_imports)]
 use std::collections::btree_map::BTreeMap;
@@ -21,13 +20,12 @@ use crate::decider::*;
 use crate::fineform_correct::*;
 use crate::nnf::*;
 
+#[allow(unreachable_code)]
 fn main() {
-    /*
     rayon::ThreadPoolBuilder::new()
         .num_threads(16)
         .build_global()
         .unwrap();
-    */
 
     /*
     for i in fineform_correct::PowersetIter::new(20).step_by(0xFFFF) {
@@ -60,24 +58,16 @@ fn main() {
     }
     */
 
+    #[allow(unused_variables)]
+    #[allow(unused_mut)]
     let mut ff_iter = fineform_correct::FineFormIter::new(1);
 
-    let mut i = 0;
-
     /*
-    for nnf in ff_iter {
-    i +=1;
-    println!("{}", nnf.display_beautiful());
-    if i > 10000 { break; }
-    }
-    panic!();
-    */
-
     fn decide_unifiability_unsimplified_direct(nnf: NNF) -> Result<bool, ClauseSetIrred> {
         let clause_set_waiting = ClauseSetWaiting::from_nnf(nnf);
-        let clause_set_atoms: ClauseSetAtoms = clause_set_waiting.process_disjs();
+        let clause_set_atoms: ClauseSetAtoms = clause_set_waiting.process_conjs();
         let clause_set_irred: ClauseSetIrred = clause_set_atoms.process_atoms();
-        let clause_set_irred_simplified: ClauseSetIrred = clause_set_irred.simplify_unifiability();
+        let clause_set_irred_simplified: ClauseSetIrred = clause_set_irred.unifiability_simplify();
 
         let backup = clause_set_irred_simplified.clone();
         clause_set_irred_simplified.is_unifiable().ok_or(backup)
@@ -86,128 +76,134 @@ fn main() {
     fn decide_unifiability_simplified_direct(nnf: NNF) -> Result<bool, ClauseSetIrred> {
         decide_unifiability_unsimplified_direct(nnf.simpl())
     }
+    */
 
     fn debug_unifiability(index: usize, mut ff_iter: FineFormIter) {
         for _ in 0..index {
             ff_iter.next();
         }
 
-        let nnf = ff_iter.next().unwrap();
-        let clause_waiting_conj = ClauseWaitingConj::from_nnf(nnf.clone());
-        //println!("unsimpl {:?}", clause_waiting_conj);
-        let clause_waiting_disj = clause_waiting_conj.process_conjs();
-        //println!("unsimpl {:?}", clause_waiting_disj);
-        let clause_set_waiting = ClauseSetWaiting::from_clause(clause_waiting_disj);
-        //println!("unsimpl {:?}", clause_set_waiting);
-        let clause_set_atoms: ClauseSetAtoms = clause_set_waiting.process_disjs();
-        println!("unsimpl {:?}", clause_set_atoms);
-        let clause_set_irred: ClauseSetIrred = clause_set_atoms.process_atoms();
-        //println!("unsimpl {:?}", clause_set_irred);
-        let clause_set_irred_simplified: ClauseSetIrred = clause_set_irred.simplify_unifiability();
-        println!("unsimpl {:?}", clause_set_irred_simplified);
-        let unifiable = clause_set_irred_simplified.is_unifiable();
-        println!("unsimpl unifiable {:?}", unifiable);
+        /*
+            let nnf = ff_iter.next().unwrap();
+            let clause_waiting_conj = ClauseWaitingConj::from_nnf(nnf.clone());
+            //println!("unsimpl {:?}", clause_waiting_conj);
+            let clause_waiting_disj_u = clause_waiting_conj.process_conjs();
+            //println!("unsimpl {:?}", clause_waiting_disj_u);
+            let clause_set_atoms_u = ClauseSetAtoms::from_clause(clause_waiting_disj_u);
+            //println!("unsimpl {:?}", clause_set_atoms_u);
+            let clause_set_irred_u: ClauseSetIrred = clause_set_atoms_u.process_atoms();
+            println!("unsimpl {:?}", clause_set_irred_u);
+            let clause_set_irred_simplified: ClauseSetIrred =
+                clause_set_irred_u.clone().unifiability_simplify();
+            println!("unsimpl {:?}", clause_set_irred_simplified);
+            let unifiable = clause_set_irred_simplified.is_unifiable();
+            println!("unsimpl unifiable {:?}", unifiable);
 
-        println!();
+            println!();
 
-        let nnf = nnf.simpl();
-        let clause_waiting_conj = ClauseWaitingConj::from_nnf(nnf.clone());
-        //println!("simpl {:?}", clause_waiting_conj);
-        let clause_waiting_disj = clause_waiting_conj.process_conjs();
-        //println!("simpl {:?}", clause_waiting_disj);
-        let clause_set_waiting = ClauseSetWaiting::from_clause(clause_waiting_disj);
-        //println!("simpl {:?}", clause_set_waiting);
-        let clause_set_atoms: ClauseSetAtoms = clause_set_waiting.process_disjs();
-        println!("simpl {:?}", clause_set_atoms);
-        let clause_set_irred: ClauseSetIrred = clause_set_atoms.process_atoms();
-        //println!("simpl {:?}", clause_set_irred);
-        let clause_set_irred_simplified: ClauseSetIrred = clause_set_irred.simplify_unifiability();
-        println!("simpl {:?}", clause_set_irred_simplified);
-        let unifiable = clause_set_irred_simplified.is_unifiable();
-        println!("simpl unifiable {:?}", unifiable);
+            let nnf = nnf.simpl();
+            let clause_waiting_conj = ClauseWaitingConj::from_nnf(nnf);
+            //println!("simpl {:?}", clause_waiting_conj);
+            let clause_waiting_disj_s = clause_waiting_conj.process_conjs();
+            //println!("simpl {:?}", clause_waiting_disj_s);
+            let clause_set_atoms_s = ClauseSetAtoms::from_clause(clause_waiting_disj_s);
+            //println!("simpl {:?}", clause_set_atoms_s);
+            let clause_set_irred_s: ClauseSetIrred = clause_set_atoms_s.process_atoms();
+            println!("simpl {:?}", clause_set_irred_s);
+            assert!(NNF::equiv_dec(
+                &clause_set_irred_s.to_nnf_boxed(),
+                &clause_set_irred_u.to_nnf_boxed()
+            ));
+            let clause_set_irred_simplified: ClauseSetIrred =
+                clause_set_irred_s.unifiability_simplify();
+            println!("simpl {:?}", clause_set_irred_simplified);
+            let unifiable = clause_set_irred_simplified.is_unifiable();
+            println!("simpl unifiable {:?}", unifiable);
+        */
     }
-    debug_unifiability(10, ff_iter);
+    //debug_unifiability(27, ff_iter);
+
+    /*
+    find_non_decidables(ff_iter);
     return;
+    */
 
-    while let Some(nnf) = ff_iter.next() {
-        let unif_ud = decide_unifiability_unsimplified_direct(nnf.clone());
-        let unif_sd = decide_unifiability_simplified_direct(nnf.clone());
+    fn find_random_non_decidables() {
+        use proptest::prelude::*;
+        use proptest::strategy::*;
+        use proptest::test_runner::*;
 
-        match (unif_ud, unif_sd) {
-            (Ok(b0), Ok(b1)) => {
-                if b0 != b1 {
+        let mut runner = TestRunner::default();
+
+        let mut i = 0;
+        let mut decidables = 0;
+
+        loop {
+            let mut nnf_val = arb_nnf().new_tree(&mut runner).unwrap();
+            match nnf_val.current().check_unifiable() {
+                Ok(_) => {
+                    decidables += 1;
+                    i += 1;
+                }
+                Err(clause_set_irred) => {
+                    println!("{}", clause_set_irred.display_beautiful());
+                    i += 1;
+                }
+            }
+
+            if i - decidables > 50 {
+                println!("loops {}, dec {}", i, decidables);
+                break;
+            }
+        }
+    }
+
+    find_random_non_decidables();
+
+    fn find_non_decidables(mut ff_iter: FineFormIter) {
+        let mut i = 0;
+        while let Some(nnf) = ff_iter.next() {
+            match nnf.clone().check_unifiable() {
+                Ok(_) => {
+                    //println!("unifiable: {}", b)
+                }
+                Err(clause_set_irred) => {
+                    println!();
                     println!("index: {}", i);
-                    println!("formula unsimplified: {}", nnf.display_beautiful());
+                    println!("formula b: {}", nnf.display_beautiful());
+                    println!("clause_set: {}", clause_set_irred.display_beautiful());
+                    //println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
+                    //println!("clause_set b: {}", clause_set_irred.display_beautiful());
                     println!(
-                        "formula simplified: {}",
-                        nnf.clone().simpl().display_beautiful()
+                        "index: {}, level: {}, curr_level_len: {}",
+                        i,
+                        ff_iter.get_curr_level(),
+                        ff_iter.get_curr_level_len()
                     );
-                    println!(
-                        "formula simplified slow: {}",
-                        nnf.simpl_slow().display_beautiful()
-                    );
-                    println!("unifiability unsimplified: {}", b0);
-                    println!("unifiability simplified: {}", b1);
+                    println!();
                     return;
                 }
             }
-            (Ok(b0), Err(clause_set_irred)) => {
-                println!("index: {}", i);
-                println!("formula b: {}", nnf.display_beautiful());
-                println!("unifiability: {}", b0);
-                println!(
-                    "but the simplifying algorithm returned {:?}",
-                    clause_set_irred
-                );
-                println!(
-                    "clause_set b: {}",
-                    clause_set_irred.to_nnf_boxed().display_beautiful()
-                );
-                return;
-            }
-            (Err(clause_set_irred), _) => {
-                println!("index: {}", i);
-                println!("formula b: {}", nnf.display_beautiful());
-                //println!("clause_set: {:?}", clause_set_irred);
-                println!("clause_set : {:?}", clause_set_irred);
-                //println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
-                println!(
-                    "clause_set b: {}",
-                    clause_set_irred.to_nnf_boxed().display_beautiful()
-                );
-                println!();
-            }
-        }
 
-        //TODO: Without simplification and using `ClauseSetIrred::from_nnf`, most problems are solvable.
-        // But using simplification, this is not the case anymore.
-        // What is the problem?
-        // And going via `ClauseSetAtoms::unifiability_simplify` it also doesn't work.
-        //let nnf = nnf.simpl();
-        //let clause_set_atoms = ClauseSetAtoms::from_nnf(nnf.clone());
-        //let clause_set_simpl0 = clause_set_atoms.unifiability_simplify();
-        //let clause_set_irred = clause_set_simpl0.process_atoms();
-        i += 1;
-        if i % 10 == 0 {
-            println!(
-                "current index: {}, current level: {}",
-                i,
-                ff_iter.get_curr_level()
-            );
+            i += 1;
+            /*
+                if i % 10 == 0 {
+                    println!(
+                        "current index: {}, current level: {}, current formula: {}, count undec {}",
+                        i,
+                        ff_iter.get_curr_level(),
+                        nnf.display_beautiful(),
+                        undec
+                    );
+                }
+            */
+            if ff_iter.get_curr_level() > 2 {
+                break;
+            }
+            if i > 1000 {
+                break;
+            }
         }
-        if ff_iter.get_curr_level() > 1 {
-            break;
-        }
-        if i > 1000 {
-            break;
-        }
+        println!("level: {}, count {}", ff_iter.get_curr_level(), i);
     }
-    println!("level: {}, count {}", ff_iter.get_curr_level(), i);
-    let nnf = ff_iter.next().unwrap();
-    println!("formula b: {}", nnf.display_beautiful());
-    let clause_set_atoms = ClauseSetAtoms::from_nnf(nnf.clone());
-    println!("clause_set_atoms : {:?}\n", clause_set_atoms);
-    let clause_set_simpl0 = clause_set_atoms.unifiability_simplify();
-    //println!("clause_set: {:?}", clause_set_irred);
-    println!("clause_set_simpl0 : {:?}", clause_set_simpl0);
 }
