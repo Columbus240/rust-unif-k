@@ -341,8 +341,8 @@ pub fn arb_nnf() -> impl Strategy<Value = NNF> {
     let leaf = prop_oneof![
         Just(NNF::Top),
         Just(NNF::Bot),
-        any::<usize>().prop_map(|i| NNF::AtomPos(i % 5)),
-        any::<usize>().prop_map(|i| NNF::AtomNeg(i % 5)),
+        any::<usize>().prop_map(|i| NNF::AtomPos(i % 1)),
+        any::<usize>().prop_map(|i| NNF::AtomNeg(i % 1)),
     ];
     leaf.prop_recursive(
         8,   // 8 levels deep

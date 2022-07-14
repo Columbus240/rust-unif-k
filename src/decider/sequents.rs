@@ -590,7 +590,7 @@ impl PS {
                 .substitute_top_bot(subst_top, subst_bot)
                 .simpl();
         }
-        for box_right in self.lb.iter_mut() {
+        for box_right in self.rb.iter_mut() {
             *box_right = box_right
                 .clone()
                 .substitute_top_bot(subst_top, subst_bot)

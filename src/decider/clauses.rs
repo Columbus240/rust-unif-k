@@ -412,38 +412,41 @@ impl ClauseWaitingConj {
         }
 
         // Check whether the left/right atoms are all disjoint.
+        // But this only works if there are no `atom_sequents`.
+        // Those trivially make the left/right atom-sets disjoint.
+        if self.atom_sequents.is_empty() {
+            // First create an iterator over all atoms.
+            let mut atom_iter = {
+                let irred = self.irreducibles.iter().map(|psi| &psi.atoms);
+                let waiting = self.conj_disj_sequents.iter().map(|ps| &ps.atoms);
+                irred.chain(waiting)
+            };
 
-        // First create an iterator over all atoms.
-        let mut atom_iter = {
-            let irred = self.irreducibles.iter().map(|psi| &psi.atoms);
-            let waiting = self.conj_disj_sequents.iter().map(|ps| &ps.atoms);
-            irred.chain(waiting)
-        };
+            let mut atoms = {
+                if let Some(atoms) = atom_iter.next() {
+                    atoms.clone()
+                } else {
+                    // Edge case:
+                    // If the clause contains only `PSB`. Then we can't tell.
+                    return None;
+                }
+            };
 
-        let mut atoms = {
-            if let Some(atoms) = atom_iter.next() {
-                atoms.clone()
-            } else {
-                // Edge case:
-                // If the clause contains only `PSB`. Then we can't tell.
-                return None;
-            }
-        };
-
-        for other_atoms in atom_iter {
-            if atoms.is_empty() {
-                break;
-            }
-            for (k, v) in atoms.clone().iter() {
-                if other_atoms.get(k) != Some(v) {
-                    atoms.remove(k);
+            for other_atoms in atom_iter {
+                if atoms.is_empty() {
+                    break;
+                }
+                for (k, v) in atoms.clone().iter() {
+                    if other_atoms.get(k) != Some(v) {
+                        atoms.remove(k);
+                    }
                 }
             }
-        }
 
-        if !atoms.is_empty() {
-            // We found some intersection, so * -> top or * -> bot are unifiers.
-            return Some(true);
+            if !atoms.is_empty() {
+                // We found some intersection, so * -> top or * -> bot are unifiers.
+                return Some(true);
+            }
         }
 
         None
@@ -595,7 +598,7 @@ impl From<ClauseIrred> for ClauseWaitingConj {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ClauseAtoms {
     irreducibles: BTreeSet<PSI>,
 
@@ -1062,12 +1065,14 @@ fn arb_clause_irred() -> impl Strategy<Value = ClauseIrred> {
         .prop_map(|irreducibles| ClauseIrred { irreducibles })
 }
 
+/*
 proptest! {
  #[test]
  fn simplify_equiv(clause in arb_clause_irred()) {
      assert!(NNF::equiv_dec(&clause.clone().to_nnf(), &clause.simplify().to_nnf()));
  }
 }
+*/
 
 pub struct ClauseSetWaitingDisplayBeautiful<'a> {
     clause_set: &'a ClauseSetWaiting,
@@ -1478,6 +1483,10 @@ impl ClauseSetAtoms {
     */
 }
 
+/// `Contradictory` is maybe too strong a word, because box-bottom is
+/// also "contradictory" in the sense used here, even though it is not
+/// "un-satisfiable".
+#[derive(Debug)]
 pub enum ProcessAtomsResult {
     Valid,
     Contradictory,

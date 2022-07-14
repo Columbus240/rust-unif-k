@@ -17,14 +17,16 @@ fn clause_waiting_unif_step(mut clause: ClauseWaitingConj) -> ClauseWaitingConj 
 /// All further clauses that are created by this function are stored both in `visited_clauses` and `clause_set`.
 fn check_unifiable_process_conjs(
     clause: ClauseWaitingConj,
-    visited_clauses: Arc<Mutex<BTreeSet<ClauseWaitingConj>>>,
+    visited_clauses: Arc<Mutex<BTreeSet<ClauseAtoms>>>,
     clause_set: Arc<Mutex<ClauseSetWaiting>>,
 ) -> bool {
     let mut clause = clause;
     loop {
         match TryInto::<ClauseIrred>::try_into(clause) {
             Ok(clause_irred) => match clause_irred.simple_check_unifiability() {
-                Some(b) => return b,
+                Some(b) => {
+                    return b;
+                }
                 None => {
                     let clause_irred = clause_irred.simplify();
                     clause_set.lock().unwrap().irreducibles.insert(clause_irred);
@@ -36,13 +38,11 @@ fn check_unifiable_process_conjs(
                     return b;
                 }
                 match TryInto::<ClauseAtoms>::try_into(clause_waiting) {
-                    Err(clause_waiting) => clause = clause_waiting_unif_step(clause_waiting),
+                    Err(clause_waiting) => {
+                        clause = clause_waiting_unif_step(clause_waiting);
+                    }
                     Ok(clause_atoms) => {
-                        if visited_clauses
-                            .lock()
-                            .unwrap()
-                            .insert(clause_atoms.clone().into())
-                        {
+                        if visited_clauses.lock().unwrap().insert(clause_atoms.clone()) {
                             clause_set.lock().unwrap().waiting_atoms.push(clause_atoms);
                         }
                         return false;
@@ -72,7 +72,8 @@ fn check_unifiable_process_atoms(
             if let Some(b) = clause_atoms.simple_check_unifiability() {
                 return b;
             }
-            match clause_atoms.process_atoms_step() {
+            let p = clause_atoms.process_atoms_step();
+            match p {
                 ProcessAtomsResult::Valid => true,
                 ProcessAtomsResult::Contradictory => false,
                 ProcessAtomsResult::Irred(clause_irred) => {
@@ -107,18 +108,20 @@ fn check_unifiable_process_atoms(
 impl ClauseSetWaiting {
     pub fn check_unifiable(self) -> Result<bool, ClauseSetWaiting> {
         let mut visited_clauses: BTreeSet<ClauseWaitingConj> = BTreeSet::new();
+        let mut visited_atoms: BTreeSet<ClauseAtoms> = BTreeSet::new();
         // Add the current clauses to the set of visited clauses
 
         for clause in self.irreducibles.iter() {
             visited_clauses.insert(clause.clone().into());
         }
         for clause in self.waiting_atoms.iter() {
-            visited_clauses.insert(clause.clone().into());
+            visited_atoms.insert(clause.clone());
         }
         for clause in self.waiting_conj_disj.iter() {
             visited_clauses.insert(clause.clone());
         }
         let visited_clauses: Arc<Mutex<_>> = Arc::new(Mutex::new(visited_clauses));
+        let visited_atoms: Arc<Mutex<_>> = Arc::new(Mutex::new(visited_atoms));
 
         let clause_set = Arc::new(Mutex::new(self));
 
@@ -151,7 +154,7 @@ impl ClauseSetWaiting {
                 if waiting_conj_disj.into_par_iter().any(|clause| {
                     check_unifiable_process_conjs(
                         clause,
-                        visited_clauses.clone(),
+                        visited_atoms.clone(),
                         clause_set_mutex.clone(),
                     )
                 }) {
@@ -199,5 +202,23 @@ impl NNF {
         let clause_waiting = ClauseWaitingConj::from_sequent(ps);
         let clause_set: ClauseSetWaiting = ClauseSetWaiting::from_clause(clause_waiting);
         clause_set.check_unifiable()
+    }
+}
+
+use proptest::prelude::*;
+use proptest::proptest;
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(1000))]
+    #[test]
+    fn find_box_bot(nnf in crate::nnf::arb_nnf()) {
+        let nnf_simpl = nnf.clone().simpl_slow();
+        let nnf_unif = nnf.check_unifiable();
+        let nnf_simpl_unif = nnf_simpl.check_unifiable();
+        match (nnf_unif, nnf_simpl_unif) {
+            (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
+            (Err(_), _) => {},
+            (_, Err(_)) => {},
+        }
     }
 }
