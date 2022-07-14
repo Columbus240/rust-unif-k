@@ -209,7 +209,7 @@ use proptest::prelude::*;
 use proptest::proptest;
 
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(1000))]
+    #![proptest_config(ProptestConfig::with_cases(10000))]
     #[test]
     fn find_box_bot(nnf in crate::nnf::arb_nnf()) {
         let nnf_simpl = nnf.clone().simpl_slow();

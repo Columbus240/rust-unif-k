@@ -28,26 +28,6 @@ fn main() {
         .build_global()
         .unwrap();
 
-    let nnf: NNF = NNF::And(vec![
-        NNF::And(vec![NNF::AtomPos(0)]),
-        NNF::NnfDia(Box::new(NNF::Bot)),
-    ]);
-
-    println!("input: {}", nnf.display_beautiful());
-    println!(
-        "simplified: {}",
-        nnf.clone().simpl_slow().display_beautiful()
-    );
-    let nnf_simpl = nnf.clone().simpl_slow();
-    let nnf_unif = nnf.check_unifiable();
-    println!("finished left");
-    let nnf_simpl_unif = nnf_simpl.check_unifiable();
-    match (nnf_unif, nnf_simpl_unif) {
-        (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
-        (Err(_), Err(_)) => {}
-        (_, _) => panic!(),
-    }
-
     #[allow(unused_variables)]
     #[allow(unused_mut)]
     let mut ff_iter = fineform_correct::FineFormIter::new(1);
@@ -69,13 +49,26 @@ fn main() {
 
         loop {
             let nnf_val = arb_nnf().new_tree(&mut runner).unwrap();
-            match nnf_val.current().check_unifiable() {
+            match nnf_val.current().simpl().check_unifiable() {
                 Ok(b) => {
-                    println!(
-                        "unif: {}\t {}",
-                        b,
-                        nnf_val.current().simpl_slow().display_beautiful()
-                    );
+                    /*
+                    let nnf_simpl = nnf_val.current().simpl_slow();
+                            if !(nnf_simpl == NNF::Top && b)
+                                && !(nnf_simpl == NNF::Bot && !b)
+                                && !(!b
+                                    && match nnf_simpl {
+                                        NNF::NnfDia(_) => true,
+                                        _ => false,
+                                    })
+                                && !(!b && nnf_simpl == NNF::NnfBox(Box::new(NNF::Bot)))
+                            {
+                                println!(
+                                    "unif: {}\t {}",
+                                    b,
+                                    nnf_val.current().simpl_slow().display_beautiful()
+                                );
+                            }
+                    */
 
                     decidables += 1;
                     i += 1;
@@ -86,14 +79,15 @@ fn main() {
                 }
             }
 
-            if i > 50 {
+            if i > 50000 {
                 println!("loops {}, dec {}", i, decidables);
                 break;
             }
         }
     }
 
-    find_random_non_decidables();
+    //find_random_non_decidables();
+    find_non_decidables(ff_iter);
 
     fn find_non_decidables(mut ff_iter: FineFormIter) {
         let mut i = 0;
