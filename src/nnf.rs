@@ -48,6 +48,17 @@ impl NNF {
         }
     }
 
+    pub fn degree(&self) -> usize {
+        match self {
+            NNF::AtomPos(_) => 0,
+            NNF::AtomNeg(_) => 0,
+            NNF::Bot => 0,
+            NNF::Top => 0,
+            NNF::And(a) | NNF::Or(a) => a.par_iter().map(NNF::degree).max().unwrap_or(0),
+            NNF::NnfBox(a) | NNF::NnfDia(a) => a.len() + 1,
+        }
+    }
+
     #[allow(dead_code)]
     pub fn and(phi: NNF, psi: NNF) -> NNF {
         NNF::And(vec![phi, psi])
