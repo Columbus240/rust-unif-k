@@ -82,7 +82,6 @@ impl ClauseWaitingConj {
         None
     }
 
-    /// The second result indicates whether further simplifications are possible.
     fn unifiability_simplify_empty(&mut self) {
         // if there is a sequent of the form `p ⇒ ø`, then replace `p` everywhere by `⊥`.
         // if there is a sequent of the form `ø ⇒ p`, then replace `p` everywhere by `T`.
