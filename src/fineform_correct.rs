@@ -180,3 +180,19 @@ impl Iterator for FineFormIter {
         Some(NNF::Or(formula_vec))
     }
 }
+
+/// Generates a `Vec` of all formulae in fineform of modal degree at
+/// most `max_modal_degree`.
+pub fn fineform_bounded_level(num_vars: usize, max_modal_degree: usize) -> Vec<NNF> {
+    let mut ff_iter = FineFormIter::new(num_vars);
+    let mut output = Vec::new();
+
+    loop {
+        if ff_iter.get_curr_level() > max_modal_degree {
+            break;
+        }
+        output.push(ff_iter.next().unwrap());
+    }
+
+    output
+}
