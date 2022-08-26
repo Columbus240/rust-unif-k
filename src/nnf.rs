@@ -39,7 +39,8 @@ impl NNF {
             NNF::Top => 1,
             NNF::And(a) | NNF::Or(a) => {
                 a.par_iter()
-                    .fold(|| 0, |acc, x| acc + x.len())
+                    .map(NNF::len)
+                    .fold(|| 0, |acc: usize, x: usize| acc + x)
                     .reduce(|| 0, |acc, n| acc + n)
                     + 1
             }
@@ -302,19 +303,27 @@ impl NNF {
         let sigma_neg = sigma.neg();
         // this indirection is, so we don't need to recompute `sigma.neg()`
         // multiple times
-        self.substitute1(sigma, &sigma_neg)
+        self.substitute_all1(sigma, &sigma_neg)
     }
 
-    fn substitute1(&self, sigma: &NNF, sigma_neg: &NNF) -> NNF {
+    fn substitute_all1(&self, sigma: &NNF, sigma_neg: &NNF) -> NNF {
         match self {
             NNF::Top => NNF::Top,
             NNF::Bot => NNF::Bot,
             NNF::AtomPos(_) => sigma.clone(),
             NNF::AtomNeg(_) => sigma_neg.clone(),
-            NNF::And(s) => NNF::And(s.iter().map(|x| x.substitute1(sigma, sigma_neg)).collect()),
-            NNF::Or(s) => NNF::Or(s.iter().map(|x| x.substitute1(sigma, sigma_neg)).collect()),
-            NNF::NnfBox(phi0) => NNF::NnfBox(Box::new(phi0.substitute1(sigma, sigma_neg))),
-            NNF::NnfDia(phi0) => NNF::NnfDia(Box::new(phi0.substitute1(sigma, sigma_neg))),
+            NNF::And(s) => NNF::And(
+                s.iter()
+                    .map(|x| x.substitute_all1(sigma, sigma_neg))
+                    .collect(),
+            ),
+            NNF::Or(s) => NNF::Or(
+                s.iter()
+                    .map(|x| x.substitute_all1(sigma, sigma_neg))
+                    .collect(),
+            ),
+            NNF::NnfBox(phi0) => NNF::NnfBox(Box::new(phi0.substitute_all1(sigma, sigma_neg))),
+            NNF::NnfDia(phi0) => NNF::NnfDia(Box::new(phi0.substitute_all1(sigma, sigma_neg))),
         }
     }
 }
