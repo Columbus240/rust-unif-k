@@ -1070,6 +1070,10 @@ impl ClauseIrred {
                         new_atoms.remove(i);
 
                         for (j, lr) in right_sequent.atoms.iter() {
+                            // skip `j` if it is `i`, otherwise we don't cut.
+                            if j == i {
+                                continue;
+                            }
                             match new_atoms.insert(*j, *lr) {
                                 None => {}
                                 Some(prev_lr) => {
