@@ -205,7 +205,6 @@ impl NNF {
     }
 }
 
-use proptest::prelude::*;
 use proptest::proptest;
 
 proptest! {
