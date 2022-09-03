@@ -8,8 +8,7 @@ use rayon::prelude::*;
 
 fn clause_waiting_unif_step(mut clause: ClauseWaitingConj) -> ClauseWaitingConj {
     clause.process_easy_conjs();
-    let mut clause = clause.process_easy_atoms();
-    clause.unifiability_simplify();
+    let clause = clause.process_easy_atoms();
     clause.process_conjs_step()
 }
 
@@ -68,7 +67,6 @@ fn check_unifiable_process_atoms(
             }
         },
         Err(clause_atoms) => {
-            let clause_atoms = clause_atoms.unifiability_simplify();
             if let Some(b) = clause_atoms.simple_check_unifiability() {
                 return b;
             }
@@ -82,11 +80,10 @@ fn check_unifiable_process_atoms(
                     false
                 }
                 ProcessAtomsResult::Clause(clause_next) => {
-                    let clause_next = clause_next.unifiability_simplify();
                     let mut clause_set = clause_set.lock().unwrap();
                     let mut visited_clauses = visited_clauses.lock().unwrap();
-                    if visited_clauses.insert(clause_next.clone()) {
-                        clause_set.waiting_conj_disj.push(clause_next);
+                    if visited_clauses.insert(clause_next.clone().into()) {
+                        clause_set.waiting_atoms.push(clause_next);
                     }
                     false
                 }

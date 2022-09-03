@@ -15,15 +15,11 @@ extern crate lalrpop_util;
 lalrpop_mod!(pub nnf_parser, "/src/nnf_parser.rs");
 
 mod decider;
-mod fineform;
 mod fineform_correct;
 //mod lazy_decider;
 //mod lazy_nnf;
 mod nnf;
 mod powerset;
-
-#[allow(unused_imports)]
-use fineform::*;
 
 #[allow(unused_imports)]
 use crate::decider::*;
@@ -137,6 +133,7 @@ fn find_modal_degree_counterexamples() {
 }
 */
 
+#[allow(dead_code)]
 fn find_random_non_decidables() {
     use proptest::prelude::*;
     use proptest::strategy::*;
@@ -201,6 +198,7 @@ fn find_random_non_decidables() {
     println!("loops {}, dec {:?}", MAX_LOOPS, decidables);
 }
 
+#[allow(dead_code)]
 fn find_non_decidables(mut ff_iter: FineFormIter) {
     let mut i = 0;
     while let Some(nnf) = ff_iter.next() {
@@ -259,15 +257,8 @@ fn main() {
         .parse("([](0|~0) | (0&~0))")
         .unwrap();
 
-    //formula0.check_unifiable();
+    formula0.check_unifiable();
     //check_unifiability_simpl(formula0);
-
-    println!("NNF: {}", std::mem::size_of::<NNF>());
-    println!("PSW: {}", std::mem::size_of::<PSW>());
-    println!(
-        "ClauseSetWaiting: {}",
-        std::mem::size_of::<ClauseSetWaiting>()
-    );
 
     fn check_unifiability_simpl(nnf: NNF) {
         let nnf_simpl = nnf.clone().simpl_slow();

@@ -478,11 +478,6 @@ pub enum PSConjsResult {
     Boxes(PSB),
 }
 
-enum PSstepResult {
-    Waiting(Vec<PSW>),
-    Next(PSI),
-}
-
 impl PS {
     pub fn to_nnf(&self) -> NNF {
         Into::<PSW>::into(self.clone()).to_nnf()
