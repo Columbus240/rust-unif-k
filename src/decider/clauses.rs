@@ -96,6 +96,7 @@ impl ClauseWaitingConj {
         None
     }
 
+    #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
     fn unifiability_simplify_empty(&mut self) {
         // if there is a sequent of the form `p ⇒ ø`, then replace `p` everywhere by `⊥`.
         // if there is a sequent of the form `ø ⇒ p`, then replace `p` everywhere by `T`.
@@ -185,6 +186,7 @@ impl ClauseWaitingConj {
         }
 
         if simplify_further {
+            #[allow(deprecated)]
             self.unifiability_simplify_empty();
         }
     }
@@ -253,7 +255,9 @@ impl ClauseWaitingConj {
         self.substitute(&substitution)
     }
 
+    #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
     pub fn unifiability_simplify(&mut self) {
+        #[allow(deprecated)]
         self.unifiability_simplify_empty();
         //self.unifiability_simplify_box_bot();
     }
@@ -499,6 +503,7 @@ impl ClauseWaitingConj {
         }
     }
 
+    //TODO: Is this algorithm correct?
     pub fn process_atoms_step(self) -> ProcessAtomsResult {
         // Shortcut if the clause has no `atom_sequents`.
         if self.atom_sequents.is_empty() {
@@ -701,8 +706,10 @@ impl ClauseAtoms {
         clause_waiting_conj
     }
 
+    #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
     pub fn unifiability_simplify(self) -> ClauseWaitingConj {
         let mut clause: ClauseWaitingConj = self.into();
+        #[allow(deprecated)]
         clause.unifiability_simplify();
         clause
     }
@@ -1393,6 +1400,7 @@ pub struct ClauseSetAtoms {
     waiting_atoms: Vec<ClauseAtoms>,
 }
 impl ClauseSetAtoms {
+    #[deprecated]
     pub fn from_clause(clause: ClauseAtoms) -> ClauseSetAtoms {
         ClauseSetAtoms {
             irreducibles: BTreeSet::new(),
@@ -1535,10 +1543,12 @@ impl ClauseSetWaiting {
 }
 
 impl ClauseSetAtoms {
+    #[deprecated]
     pub fn from_nnf(nnf: NNF) -> ClauseSetAtoms {
         ClauseSetWaiting::from_nnf(nnf).process_conjs()
     }
 
+    #[deprecated]
     pub fn to_nnf_boxed(&self) -> NNF {
         NNF::Or(
             self.irreducibles
