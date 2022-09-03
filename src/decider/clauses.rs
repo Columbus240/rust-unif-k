@@ -29,7 +29,7 @@ pub struct ClauseWaitingConj {
     // Sequents that do not contain atoms
     pub atom_sequents: BTreeSet<PSB>,
 
-    // sequents that contain both right-conjunctions and left-disjunctions
+    // Sequents that contain both right-conjunctions and left-disjunctions
     pub conj_disj_sequents: Vec<PS>,
 }
 
@@ -599,10 +599,10 @@ impl From<ClauseIrred> for ClauseWaitingConj {
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ClauseAtoms {
-    irreducibles: BTreeSet<PSI>,
+    pub irreducibles: BTreeSet<PSI>,
 
     // Sequents that might not contain atoms
-    atom_sequents: Vec<PSB>,
+    pub atom_sequents: Vec<PSB>,
 }
 
 impl ClauseAtoms {
@@ -1392,7 +1392,7 @@ impl ClauseSetWaiting {
     }
 
     /// Tries to check for unifiability, without making further simplifications.
-    /// Try calling `simplify_unifiability` beforehand, for better results.
+    /// Try calling `unifiability_simplify` beforehand, for better results.
     pub fn is_unifiable(&self) -> Option<bool> {
         if self.is_empty() {
             return Some(false);

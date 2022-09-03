@@ -139,7 +139,6 @@ impl ClauseSetWaiting {
                     if let Some(b) = clause_set.is_unifiable() {
                         return Ok(b);
                     }
-                    // Otherwise return
                     return Err(clause_set);
                 }
             }
@@ -205,6 +204,8 @@ impl NNF {
     }
 }
 
+#[allow(unused_imports)]
+use proptest::prelude::*;
 use proptest::proptest;
 
 proptest! {

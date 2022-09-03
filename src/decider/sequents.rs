@@ -5,7 +5,7 @@ use proptest_derive::Arbitrary;
 use super::clauses::push_if_not_exists;
 use crate::nnf::{NnfAtom, NNF};
 
-#[derive(Arbitrary, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Arbitrary, Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum LeftRight {
     Left,
     Right,

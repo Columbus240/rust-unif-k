@@ -170,12 +170,12 @@ impl FineForm {
 
         if let FineForm::Node(node0) = self {
             if let FineForm::Node(node1) = other {
-                return node0.equiv_dec(node1);
+                node0.equiv_dec(node1)
             } else {
-                return node0.valid_dec();
+                node0.valid_dec()
             }
         } else {
-            return other.valid_dec();
+            other.valid_dec()
         }
     }
 
@@ -703,9 +703,9 @@ fn arb_ff() -> impl Strategy<Value = FineForm> {
         10,  // Up to 10 items per collection
         |inner| {
             (
-                prop::collection::btree_map(any::<usize>(), any::<bool>(), 0..10),
+                prop::collection::btree_map(any::<NnfAtom>(), any::<bool>(), 0..10),
                 prop::option::of(inner.clone()),
-                prop::collection::btree_set(inner.clone(), 0..10),
+                prop::collection::btree_set(inner, 0..10),
             )
                 .prop_map(|(atoms, dia_branch, box_branches)| {
                     FineForm::Node(Box::new(FFNode {
@@ -748,9 +748,9 @@ fn test_equiv_constant() {
         },
     }));
 
-    assert_eq!(a.to_nnf().is_valid(), false);
+    assert!(!a.to_nnf().is_valid());
     if let Some(b) = a.valid_dec() {
-        assert_eq!(b, false);
+        assert!(!b);
     }
 }
 
@@ -778,7 +778,7 @@ proptest! {
     }
 
     if let Some(val) = a.equiv_dec(&FineForm::Top) {
-        assert_eq!(val, a_nnf.clone().is_valid());
+        assert_eq!(val, a_nnf.is_valid());
     }
 
     if let Some(val) = a.equiv_dec(&FineForm::bot()) {
@@ -786,7 +786,7 @@ proptest! {
     }
 
     if let Some(val) = a.valid_dec() {
-        assert_eq!(val, a_nnf.clone().is_valid());
+        assert_eq!(val, a_nnf.is_valid());
     }
 
     if let Some(val) = a.contradictory_dec() {
