@@ -23,6 +23,7 @@ use crate::decider::*;
 use crate::fineform_correct::*;
 use crate::nnf::*;
 
+/*
 /// Conjecture: If `φ` is unifiable, then there exists a unifier of
 /// modal degree at most the modal degree of `φ`, for single-variable
 /// formulae.
@@ -32,7 +33,35 @@ use crate::nnf::*;
 /// formula) has been found. Instead stop iteration early.
 fn find_modal_degree_counterexamples() {
     let unifier_max_degree = 3;
-    let unifier_vec = fineform_correct::fineform_bounded_level(0, unifier_max_degree);
+    let mut unifier_iter = FineFormIter::new(0);
+
+    // Shall contain all variable free formulae in normal form, indexed by degree.
+    // I.e. in `unifier_vec[i]` there are precisely the variable-free
+    // formulae of degree `i` in normal form up to equivalence.
+    let unifier_vec: Vec<Vec<NNF>> = Vec::with_capacity(unifier_max_degree);
+
+    let mut formula_iter = FineFormIter::new(1);
+
+    let mut curr_level: usize = 0;
+
+    while curr_level <= unifier_max_degree {
+        unifier_vec.push(Vec::new());
+        // Fill in the next level of unifiers into `unifier_vec`
+        while let Some(unif) = unifier_iter.next_curr_level() {
+            unifier_vec[curr_level].push(unif);
+        }
+
+        // for each formula of the current level...
+        while let Some(formula) = formula_iter.next_curr_level() {
+            //
+        }
+
+        // prepare for the next level
+        unifier_iter.prepare_next_level();
+        formula_iter.prepare_next_level();
+        curr_level += 1;
+    }
+
     let mut unifier_deg_vec = Vec::with_capacity(unifier_vec.len());
     for unif in unifier_vec.into_iter() {
         let degree = unif.degree();
@@ -99,6 +128,104 @@ fn find_modal_degree_counterexamples() {
         }
     }
 }
+*/
+
+fn find_random_non_decidables() {
+    use proptest::prelude::*;
+    use proptest::strategy::*;
+    use proptest::test_runner::*;
+
+    let mut runner = TestRunner::default();
+
+    let mut i = 0;
+    let mut decidables = 0;
+
+    loop {
+        let nnf_val = arb_nnf().new_tree(&mut runner).unwrap();
+        match nnf_val.current().simpl().check_unifiable() {
+            #[allow(unused_variables)]
+            Ok(b) => {
+                /*
+                let nnf_simpl = nnf_val.current().simpl_slow();
+                        if !(nnf_simpl == NNF::Top && b)
+                            && !(nnf_simpl == NNF::Bot && !b)
+                            && !(!b
+                                && match nnf_simpl {
+                                    NNF::NnfDia(_) => true,
+                                    _ => false,
+                                })
+                            && !(!b && nnf_simpl == NNF::NnfBox(Box::new(NNF::Bot)))
+                        {
+                            println!(
+                                "unif: {}\t {}",
+                                b,
+                                nnf_val.current().simpl_slow().display_beautiful()
+                            );
+                        }
+                */
+
+                decidables += 1;
+                i += 1;
+            }
+            Err(clause_set_irred) => {
+                println!("{}", clause_set_irred.display_beautiful());
+                i += 1;
+            }
+        }
+
+        if i > 50000 {
+            println!("loops {}, dec {}", i, decidables);
+            break;
+        }
+    }
+}
+
+fn find_non_decidables(mut ff_iter: FineFormIter) {
+    let mut i = 0;
+    while let Some(nnf) = ff_iter.next() {
+        match nnf.clone().check_unifiable() {
+            Ok(_) => {
+                //println!("unifiable: {}", b)
+            }
+            Err(clause_set_irred) => {
+                println!();
+                println!("index: {}", i);
+                println!("formula b: {}", nnf.display_beautiful());
+                println!("clause_set: {}", clause_set_irred.display_beautiful());
+                //println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
+                //println!("clause_set b: {}", clause_set_irred.display_beautiful());
+                println!(
+                    "index: {}, level: {}, curr_level_len: {}",
+                    i,
+                    ff_iter.get_curr_level(),
+                    ff_iter.get_curr_level_len()
+                );
+                println!();
+                //return;
+            }
+        }
+
+        i += 1;
+        /*
+            if i % 10 == 0 {
+                println!(
+                    "current index: {}, current level: {}, current formula: {}, count undec {}",
+                    i,
+                    ff_iter.get_curr_level(),
+                    nnf.display_beautiful(),
+                    undec
+                );
+            }
+        */
+        if ff_iter.get_curr_level() > 2 {
+            break;
+        }
+        if i > 1000 {
+            break;
+        }
+    }
+    println!("level: {}, count {}", ff_iter.get_curr_level(), i);
+}
 
 #[allow(unreachable_code)]
 fn main() {
@@ -107,114 +234,18 @@ fn main() {
         .build_global()
         .unwrap();
 
-    find_modal_degree_counterexamples();
-    return;
+    //find_modal_degree_counterexamples();
 
     #[allow(unused_variables)]
     #[allow(unused_mut)]
     let mut ff_iter = fineform_correct::FineFormIter::new(1);
 
+    find_random_non_decidables();
     /*
     find_non_decidables(ff_iter);
     return;
     */
 
-    fn find_random_non_decidables() {
-        use proptest::prelude::*;
-        use proptest::strategy::*;
-        use proptest::test_runner::*;
-
-        let mut runner = TestRunner::default();
-
-        let mut i = 0;
-        let mut decidables = 0;
-
-        loop {
-            let nnf_val = arb_nnf().new_tree(&mut runner).unwrap();
-            match nnf_val.current().simpl().check_unifiable() {
-                Ok(b) => {
-                    /*
-                    let nnf_simpl = nnf_val.current().simpl_slow();
-                            if !(nnf_simpl == NNF::Top && b)
-                                && !(nnf_simpl == NNF::Bot && !b)
-                                && !(!b
-                                    && match nnf_simpl {
-                                        NNF::NnfDia(_) => true,
-                                        _ => false,
-                                    })
-                                && !(!b && nnf_simpl == NNF::NnfBox(Box::new(NNF::Bot)))
-                            {
-                                println!(
-                                    "unif: {}\t {}",
-                                    b,
-                                    nnf_val.current().simpl_slow().display_beautiful()
-                                );
-                            }
-                    */
-
-                    decidables += 1;
-                    i += 1;
-                }
-                Err(clause_set_irred) => {
-                    println!("{}", clause_set_irred.display_beautiful());
-                    i += 1;
-                }
-            }
-
-            if i > 50000 {
-                println!("loops {}, dec {}", i, decidables);
-                break;
-            }
-        }
-    }
-
     //find_random_non_decidables();
     find_non_decidables(ff_iter);
-
-    fn find_non_decidables(mut ff_iter: FineFormIter) {
-        let mut i = 0;
-        while let Some(nnf) = ff_iter.next() {
-            match nnf.clone().check_unifiable() {
-                Ok(_) => {
-                    //println!("unifiable: {}", b)
-                }
-                Err(clause_set_irred) => {
-                    println!();
-                    println!("index: {}", i);
-                    println!("formula b: {}", nnf.display_beautiful());
-                    println!("clause_set: {}", clause_set_irred.display_beautiful());
-                    //println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
-                    //println!("clause_set b: {}", clause_set_irred.display_beautiful());
-                    println!(
-                        "index: {}, level: {}, curr_level_len: {}",
-                        i,
-                        ff_iter.get_curr_level(),
-                        ff_iter.get_curr_level_len()
-                    );
-                    println!();
-                    //return;
-                }
-            }
-
-            i += 1;
-            /*
-                if i % 10 == 0 {
-                    println!(
-                        "current index: {}, current level: {}, current formula: {}, count undec {}",
-                        i,
-                        ff_iter.get_curr_level(),
-                        nnf.display_beautiful(),
-                        undec
-                    );
-                }
-            */
-            if ff_iter.get_curr_level() > 2 {
-                break;
-            }
-            if i > 1000 {
-                break;
-            }
-        }
-        println!("level: {}, count {}", ff_iter.get_curr_level(), i);
-    }
 }
