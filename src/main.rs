@@ -157,7 +157,10 @@ fn find_random_non_decidables() {
     const NUM_VARIABLES: NnfAtom = 1;
     const SIMPLIFY_FORMULAE: bool = true;
 
-    for _ in 0..MAX_LOOPS {
+    for i in 0..MAX_LOOPS {
+        if i > 0 && (i % 100 == 0) {
+            println!("{}", i);
+        }
         let nnf_val = arb_nnf_var(NUM_VARIABLES).new_tree(&mut runner).unwrap();
 
         let nnf = if SIMPLIFY_FORMULAE {
@@ -252,13 +255,34 @@ fn main() {
         .build_global()
         .unwrap();
 
+    let formula0: NNF = nnf_parser::LiteralParser::new()
+        .parse("([](0|~0) | (0&~0))")
+        .unwrap();
+
+    //formula0.check_unifiable();
+    //check_unifiability_simpl(formula0);
+
+    println!("NNF: {}", std::mem::size_of::<NNF>());
+    println!("PSW: {}", std::mem::size_of::<PSW>());
+    println!(
+        "ClauseSetWaiting: {}",
+        std::mem::size_of::<ClauseSetWaiting>()
+    );
+
+    fn check_unifiability_simpl(nnf: NNF) {
+        let nnf_simpl = nnf.clone().simpl_slow();
+        let nnf_unif = nnf.check_unifiable();
+        let nnf_simpl_unif = nnf_simpl.check_unifiable();
+        match (nnf_unif, nnf_simpl_unif) {
+            (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
+            (Err(e), _) => panic!("{}", e.display_beautiful()),
+            (_, Err(_)) => {}
+        }
+    }
+
     //find_modal_degree_counterexamples();
 
-    #[allow(unused_variables)]
-    #[allow(unused_mut)]
-    let mut ff_iter = fineform_correct::FineFormIter::new(1);
-
-    find_random_non_decidables();
+    //find_random_non_decidables();
     /*
     find_non_decidables(ff_iter);
     return;
