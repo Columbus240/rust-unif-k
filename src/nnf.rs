@@ -358,24 +358,37 @@ impl<'a> NNF {
 
 use proptest::prelude::*;
 
-#[allow(dead_code)]
 pub fn arb_nnf() -> impl Strategy<Value = NNF> {
+    const DEFAULT_NUM_VARIABLES: u8 = 1;
+    arb_nnf_var(DEFAULT_NUM_VARIABLES)
+}
+
+#[allow(dead_code)]
+pub fn arb_nnf_var(num_variables: u8) -> impl Strategy<Value = NNF> {
     let leaf = prop_oneof![
         Just(NNF::Top),
         Just(NNF::Bot),
-        any::<NnfAtom>().prop_map(|i| NNF::AtomPos(i % 1)),
-        any::<NnfAtom>().prop_map(|i| NNF::AtomNeg(i % 1)),
+        any::<NnfAtom>().prop_map(move |i| if num_variables > 0 {
+            NNF::AtomPos(i % num_variables)
+        } else {
+            NNF::Top
+        }),
+        any::<NnfAtom>().prop_map(move |i| if num_variables > 0 {
+            NNF::AtomNeg(i % num_variables)
+        } else {
+            NNF::Bot
+        }),
     ];
     leaf.prop_recursive(
         8,   // 8 levels deep
         512, // Maximum 256 nodes
         10,  // Up to 10 items per collection
-        |inner| {
+        |inner: BoxedStrategy<NNF>| {
             prop_oneof![
                 prop::collection::vec(inner.clone(), 0..10).prop_map(NNF::And),
                 prop::collection::vec(inner.clone(), 0..10).prop_map(NNF::Or),
-                inner.clone().prop_map(|x| NNF::NnfBox(Box::new(x))),
-                inner.prop_map(|x| NNF::NnfDia(Box::new(x))),
+                inner.clone().prop_map(NNF::boxx),
+                inner.prop_map(NNF::dia),
             ]
         },
     )
