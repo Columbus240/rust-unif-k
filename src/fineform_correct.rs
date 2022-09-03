@@ -92,63 +92,66 @@ impl FineFormIter {
         self.curr_level_formulae.len()
     }
 
-    // Returns true, if a new level started
-    fn generate_next_formula_real(&mut self, new_level: bool) -> bool {
+    /// Returns `true` if a new level would have to start. I.e. iff `self.prev_level_powerset` is empty.
+    /// Otherwise it returns `false` and adds the next "normal form" to `self.curr_level_formulae`.
+    #[allow(dead_code)]
+    fn generate_next_formula_curr_level(&mut self) -> bool {
         // Only advance the `prev_level_powerset` if
-        // `literals_powerset` runs out
+        // `literals_powerset` runs out.
 
         // Peek into `prev_level_powerset` to obtain
         // instructions, about the sign of the previous level.
-        if let Some(prev_set) = self.prev_level_powerset.peek() {
-            if let Some(literals_set) = self.literals_powerset.next() {
-                let mut literals_vec =
-                    Vec::with_capacity(literals_set.len() + self.prev_level.len());
-                for (i, b) in literals_set.iter().enumerate() {
-                    if *b {
-                        literals_vec.push(NNF::AtomPos(i as NnfAtom));
-                    } else {
-                        literals_vec.push(NNF::AtomNeg(i as NnfAtom));
-                    }
-                }
-                for (b, nnf) in prev_set.iter().zip(self.prev_level.iter()) {
-                    if *b {
-                        literals_vec.push(NNF::NnfDia(Box::new(nnf.clone())));
-                    } else {
-                        literals_vec.push(NNF::NnfBox(Box::new(nnf.neg())));
-                    }
-                }
-
-                let out: NNF = NNF::And(literals_vec).simpl();
-                self.curr_level_formulae.push(out);
-                new_level
-            } else {
-                // We are done with this set of formulae from the previous level.
-                // Go to the next.
-                self.prev_level_powerset.next();
-                // And reset the literals iterator.
-                self.literals_powerset = PowersetIter::new(self.num_variables as usize);
-                // Then return the next element.
-                self.generate_next_formula_real(new_level)
-            }
-        } else {
+        let prev_set = self.prev_level_powerset.peek();
+        if prev_set.is_none() {
             // `prev_level_powerset` is empty now. So we are done with this level.
-            self.prev_level.clear();
-            self.prev_level.append(&mut self.curr_level_formulae);
-            self.curr_level += 1;
-            // the `literals_powerset` iterator is still fresh, so no need to update it.
-            self.prev_level_powerset = PowersetIter::new(self.prev_level.len()).peekable();
-            self.generate_next_formula_real(true)
+            return true;
+        }
+        let prev_set = prev_set.unwrap();
+
+        if let Some(literals_set) = self.literals_powerset.next() {
+            let mut literals_vec = Vec::with_capacity(literals_set.len() + self.prev_level.len());
+            for (i, b) in literals_set.iter().enumerate() {
+                if *b {
+                    literals_vec.push(NNF::AtomPos(i as NnfAtom));
+                } else {
+                    literals_vec.push(NNF::AtomNeg(i as NnfAtom));
+                }
+            }
+            for (b, nnf) in prev_set.iter().zip(self.prev_level.iter()) {
+                if *b {
+                    literals_vec.push(NNF::NnfDia(Box::new(nnf.clone())));
+                } else {
+                    literals_vec.push(NNF::NnfBox(Box::new(nnf.neg())));
+                }
+            }
+
+            let out: NNF = NNF::And(literals_vec).simpl();
+            self.curr_level_formulae.push(out);
+            false
+        } else {
+            // We are done with this set of formulae from the previous level.
+            // Go to the next.
+            self.prev_level_powerset.next();
+            // And reset the literals iterator.
+            self.literals_powerset = PowersetIter::new(self.num_variables as usize);
+            // Then return the next element of this level.
+            self.generate_next_formula_curr_level()
         }
     }
 
+    /// Returns true, if a new level started
     fn generate_next_formula(&mut self) -> bool {
-        self.generate_next_formula_real(false)
+        if self.generate_next_formula_curr_level() {
+            self.prepare_next_level();
+            true
+        } else {
+            // No new level started, so return `false`
+            false
+        }
     }
-}
 
-impl Iterator for FineFormIter {
-    type Item = NNF;
-    fn next(&mut self) -> Option<NNF> {
+    /// Output the next formula iff it is on the current level.
+    pub fn next_curr_level(&mut self) -> Option<NNF> {
         if self.full_powerset == None {
             self.full_powerset = Some(BigInt::zero());
             return Some(NNF::Top);
@@ -158,12 +161,11 @@ impl Iterator for FineFormIter {
 
         if full_powerset.bits() > self.curr_level_formulae.len() as u64 {
             // generate a new formula and if the level didn't change, output the next formula
-            if !self.generate_next_formula() {
-                return self.next();
+            if !self.generate_next_formula_curr_level() {
+                return self.next_curr_level();
+            } else {
+                return None;
             }
-            // if the level did change, reset the powerset
-            self.full_powerset = Some(BigInt::one());
-            return self.next();
         }
 
         // Otherwise return the next formula.
@@ -178,6 +180,30 @@ impl Iterator for FineFormIter {
 
         self.full_powerset = Some(full_powerset + BigInt::one());
         Some(NNF::Or(formula_vec))
+    }
+
+    pub fn prepare_next_level(&mut self) {
+        assert!(self.prev_level_powerset.peek().is_none());
+        // `prev_level_powerset` is empty now. So we are done with this level.
+        self.prev_level.clear();
+        // this empties `self.curr_level_formulae` into `self.prev_level`
+        self.prev_level.append(&mut self.curr_level_formulae);
+        self.curr_level += 1;
+        // the `literals_powerset` iterator is still fresh, so no need to update it.
+        self.prev_level_powerset = PowersetIter::new(self.prev_level.len()).peekable();
+        self.full_powerset = Some(BigInt::one());
+    }
+}
+
+impl Iterator for FineFormIter {
+    type Item = NNF;
+    fn next(&mut self) -> Option<NNF> {
+        if let Some(formula) = self.next_curr_level() {
+            return Some(formula);
+        }
+
+        self.prepare_next_level();
+        self.next()
     }
 }
 
