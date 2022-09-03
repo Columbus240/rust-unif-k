@@ -5,7 +5,7 @@ use std::io::prelude::*;
 #[allow(unused_imports)]
 use rayon::prelude::*;
 
-use crate::nnf::NNF;
+use crate::nnf::{NnfAtom, NNF};
 
 #[derive(Clone)]
 enum LeftRight {
@@ -16,7 +16,7 @@ enum LeftRight {
 #[allow(clippy::upper_case_acronyms)]
 struct PSW {
     // atoms (left or right)
-    atoms: BTreeMap<usize, LeftRight>,
+    atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
     lb: Vec<NNF>,
@@ -36,7 +36,7 @@ struct PSW {
 
 struct PS {
     // atoms (left or right)
-    atoms: BTreeMap<usize, LeftRight>,
+    atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
     lb: Vec<NNF>,

@@ -5,7 +5,7 @@ use std::collections::btree_set::BTreeSet;
 #[allow(unused_imports)]
 use rayon::prelude::*;
 
-use crate::nnf::NNF;
+use crate::nnf::{NnfAtom, NNF};
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FineForm {
@@ -15,7 +15,7 @@ pub enum FineForm {
 
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct FFNode {
-    pub atoms: BTreeMap<usize, bool>,
+    pub atoms: BTreeMap<NnfAtom, bool>,
     pub dia_branch: Option<FineForm>,
     pub box_branches: BTreeSet<FineForm>,
 }
@@ -86,7 +86,7 @@ impl FineForm {
         }
     }
 
-    fn to_nnf_helper(i: usize, b: bool) -> NNF {
+    fn to_nnf_helper(i: NnfAtom, b: bool) -> NNF {
         if b {
             NNF::AtomPos(i)
         } else {
@@ -414,7 +414,7 @@ impl FFPowerset {
         }
     }
 
-    fn into_ff(self, atoms: BTreeMap<usize, bool>) -> FineForm {
+    fn into_ff(self, atoms: BTreeMap<NnfAtom, bool>) -> FineForm {
         FineForm::Node(Box::new(FFNode {
             atoms,
             dia_branch: self.dia_branch,
@@ -589,7 +589,7 @@ impl<'a> Iterator for TriplePowersetIterator<'a> {
 }
 
 fn enumerate_step(
-    literals: impl Iterator<Item = BTreeMap<usize, bool>>,
+    literals: impl Iterator<Item = BTreeMap<NnfAtom, bool>>,
     input: Vec<(FineForm, NNF)>,
 ) -> Vec<(FineForm, NNF)> {
     let mut output = input.clone();
@@ -659,7 +659,7 @@ fn enumerate_step(
 }
 
 pub fn enumerate_formulae(
-    literals: impl Clone + Iterator<Item = BTreeMap<usize, bool>>,
+    literals: impl Clone + Iterator<Item = BTreeMap<NnfAtom, bool>>,
     i: usize,
 ) -> Vec<(FineForm, NNF)> {
     if i == 0 {

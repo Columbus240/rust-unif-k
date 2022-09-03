@@ -5,10 +5,12 @@ use std::collections::{BTreeMap, BTreeSet};
 mod display;
 pub use display::*;
 
+pub type NnfAtom = u8;
+
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NNF {
-    AtomPos(usize),
-    AtomNeg(usize),
+    AtomPos(NnfAtom),
+    AtomNeg(NnfAtom),
     Bot,
     Top,
     And(Vec<NNF>),
@@ -229,8 +231,8 @@ impl NNF {
     /// The result is returned.
     pub fn substitute_top_bot(
         self,
-        subst_top: &BTreeSet<usize>,
-        subst_bot: &BTreeSet<usize>,
+        subst_top: &BTreeSet<NnfAtom>,
+        subst_bot: &BTreeSet<NnfAtom>,
     ) -> NNF {
         // if the two sets intersect, abort
         if !subst_top.is_disjoint(subst_bot) {
@@ -275,7 +277,7 @@ impl NNF {
         }
     }
 
-    pub fn substitute(&mut self, substitution: &BTreeMap<usize, NNF>) {
+    pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
         match self {
             NNF::Top => {}
             NNF::Bot => {}
@@ -339,7 +341,7 @@ impl NNF {
     }
 }
 impl<'a> NNF {
-    pub fn iter_atoms(&'a self) -> Box<dyn Iterator<Item = usize> + 'a> {
+    pub fn iter_atoms(&'a self) -> Box<dyn Iterator<Item = NnfAtom> + 'a> {
         use std::iter;
         match self {
             NNF::Top => Box::new(iter::empty()),
@@ -361,8 +363,8 @@ pub fn arb_nnf() -> impl Strategy<Value = NNF> {
     let leaf = prop_oneof![
         Just(NNF::Top),
         Just(NNF::Bot),
-        any::<usize>().prop_map(|i| NNF::AtomPos(i % 1)),
-        any::<usize>().prop_map(|i| NNF::AtomNeg(i % 1)),
+        any::<NnfAtom>().prop_map(|i| NNF::AtomPos(i % 1)),
+        any::<NnfAtom>().prop_map(|i| NNF::AtomNeg(i % 1)),
     ];
     leaf.prop_recursive(
         8,   // 8 levels deep

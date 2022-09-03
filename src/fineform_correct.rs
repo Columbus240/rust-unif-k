@@ -61,7 +61,7 @@ impl Iterator for PowersetIter {
 /// Invariant: the number of bits of `literals_powerset` is always equal to `num_variables`.
 pub struct FineFormIter {
     // The number of variables to use
-    num_variables: usize,
+    num_variables: NnfAtom,
     literals_powerset: PowersetIter,
     prev_level: Vec<NNF>,
     prev_level_powerset: Peekable<PowersetIter>,
@@ -72,10 +72,10 @@ pub struct FineFormIter {
 }
 
 impl FineFormIter {
-    pub fn new(num_variables: usize) -> FineFormIter {
+    pub fn new(num_variables: NnfAtom) -> FineFormIter {
         FineFormIter {
             num_variables,
-            literals_powerset: PowersetIter::new(num_variables),
+            literals_powerset: PowersetIter::new(num_variables as usize),
             prev_level: Vec::new(),
             prev_level_powerset: PowersetIter::new(0).peekable(),
             curr_level_formulae: Vec::new(),
@@ -105,9 +105,9 @@ impl FineFormIter {
                     Vec::with_capacity(literals_set.len() + self.prev_level.len());
                 for (i, b) in literals_set.iter().enumerate() {
                     if *b {
-                        literals_vec.push(NNF::AtomPos(i));
+                        literals_vec.push(NNF::AtomPos(i as NnfAtom));
                     } else {
-                        literals_vec.push(NNF::AtomNeg(i));
+                        literals_vec.push(NNF::AtomNeg(i as NnfAtom));
                     }
                 }
                 for (b, nnf) in prev_set.iter().zip(self.prev_level.iter()) {
@@ -126,7 +126,7 @@ impl FineFormIter {
                 // Go to the next.
                 self.prev_level_powerset.next();
                 // And reset the literals iterator.
-                self.literals_powerset = PowersetIter::new(self.num_variables);
+                self.literals_powerset = PowersetIter::new(self.num_variables as usize);
                 // Then return the next element.
                 self.generate_next_formula_real(new_level)
             }
@@ -183,7 +183,7 @@ impl Iterator for FineFormIter {
 
 /// Generates a `Vec` of all formulae in fineform of modal degree at
 /// most `max_modal_degree`.
-pub fn fineform_bounded_level(num_vars: usize, max_modal_degree: usize) -> Vec<NNF> {
+pub fn fineform_bounded_level(num_vars: NnfAtom, max_modal_degree: usize) -> Vec<NNF> {
     let mut ff_iter = FineFormIter::new(num_vars);
     let mut output = Vec::new();
 

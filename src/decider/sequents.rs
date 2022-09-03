@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use proptest_derive::Arbitrary;
 
 use super::clauses::push_if_not_exists;
-use crate::nnf::NNF;
+use crate::nnf::{NnfAtom, NNF};
 
 #[derive(Arbitrary, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum LeftRight {
@@ -17,7 +17,7 @@ pub enum LeftRight {
 #[derive(Debug)]
 pub struct PSW {
     // atoms (left or right)
-    pub atoms: BTreeMap<usize, LeftRight>,
+    pub atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
     pub lb: Vec<NNF>,
@@ -122,7 +122,7 @@ impl<'a> std::fmt::Display for PSWDisplayBeautiful<'a> {
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct PS {
     // atoms (left or right)
-    pub atoms: BTreeMap<usize, LeftRight>,
+    pub atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
     pub lb: Vec<NNF>,
@@ -140,7 +140,7 @@ pub struct PS {
 #[derive(Debug, Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct PSI {
     // atoms (left or right)
-    pub atoms: BTreeMap<usize, LeftRight>,
+    pub atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
     pub lb: Vec<NNF>,
@@ -196,7 +196,7 @@ impl PSI {
         self.atoms.is_empty() && self.lb.is_empty() && self.rb.is_empty()
     }
 
-    pub fn substitute(mut self, substitution: &BTreeMap<usize, NNF>) -> PSW {
+    pub fn substitute(mut self, substitution: &BTreeMap<NnfAtom, NNF>) -> PSW {
         for phi in self.lb.iter_mut() {
             phi.substitute(substitution);
         }
@@ -294,8 +294,8 @@ impl PSI {
     /// Returns `None` if the resulting sequent is trivially valid.
     pub fn substitute_top_bot(
         mut self,
-        subst_top: &BTreeSet<usize>,
-        subst_bot: &BTreeSet<usize>,
+        subst_top: &BTreeSet<NnfAtom>,
+        subst_bot: &BTreeSet<NnfAtom>,
     ) -> Option<PSI> {
         // if the two sets intersect, abort
         if !subst_top.is_disjoint(subst_bot) {
@@ -502,7 +502,7 @@ impl PS {
         }
     }
 
-    pub fn substitute(&mut self, substitution: &BTreeMap<usize, NNF>) {
+    pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
         for phi in self.lb.iter_mut() {
             phi.substitute(substitution);
         }
@@ -555,8 +555,8 @@ impl PS {
     /// Returns `None` if the resulting sequent is trivially valid.
     pub fn substitute_top_bot(
         mut self,
-        subst_top: &BTreeSet<usize>,
-        subst_bot: &BTreeSet<usize>,
+        subst_top: &BTreeSet<NnfAtom>,
+        subst_bot: &BTreeSet<NnfAtom>,
     ) -> Option<PS> {
         // if the two sets intersect, abort
         if !subst_top.is_disjoint(subst_bot) {
@@ -800,7 +800,7 @@ impl PSB {
         Into::<PSI>::into(self.clone()).to_nnf()
     }
 
-    pub fn substitute(&mut self, substitution: &BTreeMap<usize, NNF>) {
+    pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
         for phi in self.lb.iter_mut() {
             phi.substitute(substitution);
         }
@@ -813,8 +813,8 @@ impl PSB {
     /// Returns `None` if the resulting sequent is trivially valid.
     pub fn substitute_top_bot(
         mut self,
-        subst_top: &BTreeSet<usize>,
-        subst_bot: &BTreeSet<usize>,
+        subst_top: &BTreeSet<NnfAtom>,
+        subst_bot: &BTreeSet<NnfAtom>,
     ) -> Option<PSB> {
         // if the two sets intersect, abort
         if !subst_top.is_disjoint(subst_bot) {

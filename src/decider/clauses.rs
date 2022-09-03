@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use proptest::prelude::*;
 
 use super::sequents::*;
-use crate::nnf::NNF;
+use crate::nnf::{NnfAtom, NNF};
 
 pub fn push_if_not_exists<T: PartialEq>(vec: &mut Vec<T>, t: T) {
     let mut exists = false;
@@ -86,8 +86,8 @@ impl ClauseWaitingConj {
         // if there is a sequent of the form `p ⇒ ø`, then replace `p` everywhere by `⊥`.
         // if there is a sequent of the form `ø ⇒ p`, then replace `p` everywhere by `T`.
 
-        let mut require_top: BTreeSet<usize> = BTreeSet::new();
-        let mut require_bot: BTreeSet<usize> = BTreeSet::new();
+        let mut require_top: BTreeSet<NnfAtom> = BTreeSet::new();
+        let mut require_bot: BTreeSet<NnfAtom> = BTreeSet::new();
 
         for sequent in self.irreducibles.iter() {
             if sequent.atoms.len() == 1 && sequent.rb.is_empty() && sequent.lb.is_empty() {
@@ -181,7 +181,7 @@ impl ClauseWaitingConj {
 
         // First search for the relevant atoms.
         // maps to `None` if the simplification applies to that atom.
-        let mut atoms: BTreeMap<usize, Option<Vec<NNF>>> = BTreeMap::new();
+        let mut atoms: BTreeMap<NnfAtom, Option<Vec<NNF>>> = BTreeMap::new();
 
         for sequent in self.irreducibles.iter() {
             if sequent.atoms.len() != 1 || !sequent.lb.is_empty() || sequent.rb.len() != 1 {
@@ -223,7 +223,7 @@ impl ClauseWaitingConj {
 
         // Now replace all atoms `p` in `atoms` which get mapped to
         // `None` by `p /\ [] \bot` in the whole clause.
-        let substitution: BTreeMap<usize, NNF> = atoms
+        let substitution: BTreeMap<NnfAtom, NNF> = atoms
             .into_iter()
             .filter_map(|(atom, value)| {
                 if value.is_some() {
@@ -456,7 +456,7 @@ impl ClauseWaitingConj {
         self.to_nnf().is_valid()
     }
 
-    pub fn substitute(&mut self, substitution: &BTreeMap<usize, NNF>) {
+    pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
         let irreducibles = std::mem::take(&mut self.irreducibles);
         let irreducibles = irreducibles
             .into_iter()
@@ -681,7 +681,7 @@ impl ClauseAtoms {
         None
     }
 
-    fn substitute(self, substitution: &BTreeMap<usize, NNF>) -> ClauseWaitingConj {
+    fn substitute(self, substitution: &BTreeMap<NnfAtom, NNF>) -> ClauseWaitingConj {
         let mut clause_waiting_conj: ClauseWaitingConj = self.into();
         clause_waiting_conj.substitute(substitution);
         clause_waiting_conj
@@ -872,7 +872,7 @@ impl ClauseIrred {
             MatchesLeft,
             MatchesRight,
         }
-        let mut candidates: BTreeMap<usize, Status> = BTreeMap::new();
+        let mut candidates: BTreeMap<NnfAtom, Status> = BTreeMap::new();
         for seq in self.irreducibles.iter() {
             let mut atoms_here = BTreeSet::new();
             for (atom, lr) in seq.atoms.iter() {
@@ -911,7 +911,7 @@ impl ClauseIrred {
             }
         }
 
-        let candidates: Vec<usize> = candidates
+        let candidates: Vec<NnfAtom> = candidates
             .into_iter()
             .filter_map(|(atom, status)| {
                 if status == Status::NonMatching {
@@ -1008,7 +1008,7 @@ impl From<ClauseSetIrred> for ClauseSetWaiting {
 #[allow(dead_code)]
 pub fn arb_psi() -> impl Strategy<Value = PSI> {
     (
-        prop::collection::btree_map(any::<usize>(), any::<LeftRight>(), 0..10),
+        prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
         prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
         prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
     )
@@ -1027,7 +1027,7 @@ fn arb_psb() -> impl Strategy<Value = PSB> {
 #[allow(dead_code)]
 fn arb_ps() -> impl Strategy<Value = PS> {
     (
-        prop::collection::btree_map(any::<usize>(), any::<LeftRight>(), 0..10),
+        prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
         prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
         prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
         prop::collection::vec(prop::collection::vec(crate::nnf::arb_nnf(), 0..3), 0..3),
