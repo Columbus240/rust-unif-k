@@ -139,11 +139,21 @@ fn find_random_non_decidables() {
 
     let mut runner = TestRunner::default();
 
-    let mut i = 0;
-    let mut decidables = 0;
+    fn increment(map: &mut BTreeMap<usize, usize>, index: usize) {
+        match map.get(&index) {
+            None => map.insert(index, 1),
+            Some(val) => map.insert(index, val + 1),
+        };
+    }
 
-    loop {
-        let nnf_val = arb_nnf().new_tree(&mut runner).unwrap();
+    // write down how many decidables of which degree there are
+    let mut decidables: BTreeMap<usize, usize> = BTreeMap::new();
+    const MAX_LOOPS: usize = 50_000;
+
+    for _ in 0..MAX_LOOPS {
+        let nnf_val = arb_nnf_var(1).new_tree(&mut runner).unwrap();
+        let deg = nnf_val.current().degree();
+
         match nnf_val.current().simpl().check_unifiable() {
             #[allow(unused_variables)]
             Ok(b) => {
@@ -165,21 +175,14 @@ fn find_random_non_decidables() {
                             );
                         }
                 */
-
-                decidables += 1;
-                i += 1;
+                increment(&mut decidables, deg);
             }
             Err(clause_set_irred) => {
                 println!("{}", clause_set_irred.display_beautiful());
-                i += 1;
             }
         }
-
-        if i > 50000 {
-            println!("loops {}, dec {}", i, decidables);
-            break;
-        }
     }
+    println!("loops {}, dec {:?}", MAX_LOOPS, decidables);
 }
 
 fn find_non_decidables(mut ff_iter: FineFormIter) {
