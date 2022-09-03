@@ -951,8 +951,10 @@ impl ClauseIrred {
         clause
     }
 
-    /// Returns `Some(false)` if the clause contains an empty sequent.
-    /// Returns `Some(true)` if the clause is empty
+    /// Returns `Some(false)` if the clause contains an empty
+    /// sequent. i.e. the clause is contradictory.
+    /// Returns `Some(true)` if the clause is empty. i.e. the clause
+    /// is valid.
     /// Returns `None` otherwise
     fn simple_check_validity(&self) -> Option<bool> {
         if self.irreducibles.is_empty() {
