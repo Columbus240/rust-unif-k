@@ -359,12 +359,12 @@ impl<'a> NNF {
 use proptest::prelude::*;
 
 pub fn arb_nnf() -> impl Strategy<Value = NNF> {
-    const DEFAULT_NUM_VARIABLES: u8 = 1;
+    const DEFAULT_NUM_VARIABLES: NnfAtom = 1;
     arb_nnf_var(DEFAULT_NUM_VARIABLES)
 }
 
 #[allow(dead_code)]
-pub fn arb_nnf_var(num_variables: u8) -> impl Strategy<Value = NNF> {
+pub fn arb_nnf_var(num_variables: NnfAtom) -> impl Strategy<Value = NNF> {
     let leaf = prop_oneof![
         Just(NNF::Top),
         Just(NNF::Bot),

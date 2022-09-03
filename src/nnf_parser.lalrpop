@@ -1,0 +1,68 @@
+use std::str::FromStr;
+
+use crate::nnf::{NNF, NnfAtom};
+use crate::decider::{ClauseSetWaiting, ClauseWaitingConj, PSW};
+
+grammar;
+
+Var: NnfAtom = <s:r"[0-9][0-9]*"> => NnfAtom::from_str(s).unwrap();
+
+Ampersand<T>: Vec<T> = {
+    <mut v: (<T> "&")+> <e:T?> => match e {
+        None => v,
+	Some(e) => {
+	    v.push(e);
+	    v
+	}
+    }
+};
+
+Pipe<T>: Vec<T> = {
+    <mut v: (<T> "|")+> <e:T?> => match e {
+        None => v,
+	Some(e) => {
+	    v.push(e);
+	    v
+	}
+    }
+};
+
+Comma<T>: Vec<T> = {
+    <mut v: (<T> ",")*> <e:T?> => match e {
+        None => v,
+	Some(e) => {
+	    v.push(e);
+	    v
+	}
+    }
+};
+
+Semicolon<T>: Vec<T> = {
+    <mut v: (<T> ";")*> <e:T?> => match e {
+        None => v,
+	Some(e) => {
+	    v.push(e);
+	    v
+	}
+    }
+};
+
+pub Literal: NNF = {
+    "B" => NNF::Bot,
+    "T" => NNF::Top,
+    "~" <n:Var> => NNF::AtomNeg(n),
+    <n:Var> => NNF::AtomPos(n),
+
+    "(" <v:Ampersand<Literal>> ")" => NNF::And(v),
+    "(" <v:Pipe<Literal>> ")" => NNF::Or(v),
+
+    "[]" <phi:Literal> => NNF::boxx(phi),
+    "<>" <phi:Literal> => NNF::dia(phi),
+};
+
+LiteralSet : Vec<NNF> = Comma<Literal>;
+
+Sequent : PSW = <lw: LiteralSet> "=>" <rw: LiteralSet> => PSW::from_waiting(lw, rw);
+
+Clause : ClauseWaitingConj = "{" <psw: Semicolon<Sequent>> "}" => ClauseWaitingConj::from_psw_vec(psw);
+ClauseSet: ClauseSetWaiting = "{" <cl: Comma<Clause>> "}" => ClauseSetWaiting::from_clause_vec(cl);

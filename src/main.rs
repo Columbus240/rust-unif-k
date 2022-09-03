@@ -9,6 +9,11 @@ use std::collections::btree_set::BTreeSet;
 #[allow(unused_imports)]
 use rayon::prelude::*;
 
+#[macro_use]
+extern crate lalrpop_util;
+
+lalrpop_mod!(pub nnf_parser, "/src/nnf_parser.rs");
+
 mod decider;
 mod fineform;
 mod fineform_correct;
@@ -148,19 +153,19 @@ fn find_random_non_decidables() {
 
     // write down how many decidables of which degree there are
     let mut decidables: BTreeMap<usize, usize> = BTreeMap::new();
-    const MAX_LOOPS: usize = 50_000;
-    const NUM_VARIABLES: u8 = 1;
-    const SIMPLIFY_FORMULAE: bool = false;
+    const MAX_LOOPS: usize = 5_000_000;
+    const NUM_VARIABLES: NnfAtom = 1;
+    const SIMPLIFY_FORMULAE: bool = true;
 
     for _ in 0..MAX_LOOPS {
         let nnf_val = arb_nnf_var(NUM_VARIABLES).new_tree(&mut runner).unwrap();
-        let deg = nnf_val.current().degree();
 
         let nnf = if SIMPLIFY_FORMULAE {
             nnf_val.current().simpl()
         } else {
             nnf_val.current()
         };
+        let deg = nnf.degree();
 
         match nnf.check_unifiable() {
             #[allow(unused_variables)]

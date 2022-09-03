@@ -51,14 +51,18 @@ impl PSW {
 
     /// Create a new sequent from an `NNF`
     pub fn from_nnf(phi: NNF) -> PSW {
+        PSW::from_waiting(Vec::new(), vec![phi])
+    }
+
+    pub fn from_waiting(lw: Vec<NNF>, rw: Vec<NNF>) -> PSW {
         PSW {
             atoms: BTreeMap::new(),
             lb: Vec::new(),
             rb: Vec::new(),
             ld: Vec::new(),
             rc: Vec::new(),
-            lw: Vec::new(),
-            rw: vec![phi],
+            lw,
+            rw,
         }
     }
 

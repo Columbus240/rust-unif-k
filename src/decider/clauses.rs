@@ -60,6 +60,14 @@ impl ClauseWaitingConj {
         }
     }
 
+    pub fn from_psw_vec(psw: Vec<PSW>) -> ClauseWaitingConj {
+        ClauseWaitingConj {
+            irreducibles: BTreeSet::new(),
+            atom_sequents: BTreeSet::new(),
+            conj_disj_sequents: psw.into_iter().filter_map(PSW::into_ps).collect(),
+        }
+    }
+
     /// Returns `Some(false)` if the clause contains an empty sequent.
     /// Returns `Some(true)` if the clause is empty
     /// Returns `None` otherwise
@@ -867,6 +875,11 @@ impl ClauseIrred {
         self
     }
 
+    /// Thoroughly checks the validity of this clause using the validity checker.
+    pub fn check_valid(&self) -> bool {
+        self.to_nnf().is_valid()
+    }
+
     /// Whenever a variable occurs freely on the same side, in each sequent in which it occurs,
     /// then bottom or top are unifiers for this variable and all
     /// sequents in which it occurs can be removed.
@@ -1108,10 +1121,11 @@ impl ClauseIrred {
             let new_irred_sequents_is_empty = new_irred_sequents.is_empty();
             self.irreducibles.append(&mut new_irred_sequents);
             if !new_box_sequents.is_empty() {
-                return Err(ClauseAtoms {
+                let clause_atom = ClauseAtoms {
                     irreducibles: self.irreducibles,
                     atom_sequents: new_box_sequents,
-                });
+                };
+                return Err(clause_atom);
             }
 
             if new_irred_sequents_is_empty {
@@ -1453,10 +1467,14 @@ impl ClauseSetWaiting {
         ClauseSetWaitingDisplayBeautiful { clause_set: self }
     }
     pub fn from_clause(clause: ClauseWaitingConj) -> ClauseSetWaiting {
+        ClauseSetWaiting::from_clause_vec(vec![clause])
+    }
+
+    pub fn from_clause_vec(clauses: Vec<ClauseWaitingConj>) -> ClauseSetWaiting {
         ClauseSetWaiting {
             irreducibles: BTreeSet::new(),
             waiting_atoms: Vec::new(),
-            waiting_conj_disj: vec![clause],
+            waiting_conj_disj: clauses,
         }
     }
 
@@ -1677,6 +1695,19 @@ proptest! {
     let clause_simplified = clause;
     let clause_simplified = clause_simplified.process_easy_atoms();
     assert_eq!(clause_is_valid, clause_simplified.to_nnf().is_valid());
+    }
+
+    #[test]
+    fn clause_simplify(clause in arb_clause_irred()) {
+    // check whether simplification preserves equivalence
+    let clause_simplified = clause.clone().simplify();
+    assert_eq!(clause.check_valid(), clause_simplified.clone().check_valid());
+    let clause_unif_simplified = clause_simplified.clone().unifiability_simplify();
+    match (clause_simplified.simple_check_unifiability(), clause_unif_simplified.simple_check_unifiability()) {
+    (Some(a), Some(b)) => assert_eq!(a, b),
+    (None, _) => {},
+    (Some(_), _) => panic!(),
+    }
     }
 
     /*
