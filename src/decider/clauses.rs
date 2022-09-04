@@ -1151,43 +1151,6 @@ impl ClauseIrred {
 }
 
 #[allow(dead_code)]
-pub fn arb_psi() -> impl Strategy<Value = PSI> {
-    (
-        prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-    )
-        .prop_map(|(atoms, lb, rb)| PSI { atoms, lb, rb })
-}
-
-#[allow(dead_code)]
-fn arb_psb() -> impl Strategy<Value = PSB> {
-    (
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-    )
-        .prop_map(|(lb, rb)| PSB { lb, rb })
-}
-
-#[allow(dead_code)]
-fn arb_ps() -> impl Strategy<Value = PS> {
-    (
-        prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-        prop::collection::vec(prop::collection::vec(crate::nnf::arb_nnf(), 0..3), 0..3),
-        prop::collection::vec(prop::collection::vec(crate::nnf::arb_nnf(), 0..3), 0..3),
-    )
-        .prop_map(|(atoms, lb, rb, ld, rc)| PS {
-            atoms,
-            lb,
-            rb,
-            ld,
-            rc,
-        })
-}
-
-#[allow(dead_code)]
 fn arb_clause_waiting_conj() -> impl Strategy<Value = ClauseWaiting> {
     (
         prop::collection::btree_set(arb_psi(), 0..10),

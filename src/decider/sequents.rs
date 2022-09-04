@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use proptest::prelude::*;
 use proptest_derive::Arbitrary;
 
 use super::clauses::push_if_not_exists;
@@ -905,7 +906,42 @@ impl TryFrom<PS> for PSB {
     }
 }
 
-use proptest::proptest;
+#[allow(dead_code)]
+pub fn arb_psi() -> impl Strategy<Value = PSI> {
+    (
+        prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
+        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+    )
+        .prop_map(|(atoms, lb, rb)| PSI { atoms, lb, rb })
+}
+
+#[allow(dead_code)]
+pub fn arb_psb() -> impl Strategy<Value = PSB> {
+    (
+        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+    )
+        .prop_map(|(lb, rb)| PSB { lb, rb })
+}
+
+#[allow(dead_code)]
+pub fn arb_ps() -> impl Strategy<Value = PS> {
+    (
+        prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
+        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::vec(prop::collection::vec(crate::nnf::arb_nnf(), 0..3), 0..3),
+        prop::collection::vec(prop::collection::vec(crate::nnf::arb_nnf(), 0..3), 0..3),
+    )
+        .prop_map(|(atoms, lb, rb, ld, rc)| PS {
+            atoms,
+            lb,
+            rb,
+            ld,
+            rc,
+        })
+}
 
 proptest! {
     #[test]
@@ -913,16 +949,41 @@ proptest! {
     // The contradictory `PSW` shall be contradictory.
     assert!(NNF::equiv_dec(&PSW::new_contradictory().to_nnf(), &NNF::Bot));
     let psw = PSW::from_nnf(nnf.clone());
-    assert!(NNF::equiv_dec(&nnf.clone(), &psw.to_nnf()));
+    assert!(NNF::equiv_dec(&nnf, &psw.to_nnf()));
     if let Some(ps) = psw.into_ps() {
-        assert!(NNF::equiv_dec(&nnf.clone(), &ps.to_nnf()));
+        assert!(NNF::equiv_dec(&nnf, &ps.to_nnf()));
     } else {
         assert!(nnf.is_valid());
     }
     }
 
     #[test]
-    fn test_psi(psi in super::clauses::arb_psi()) {
+    fn test_step_if_easy(psb in arb_psb()) {
+    // Condition: The output of `step_if_easy` is both equi-valid
+    // and unifier-equivalent to `psb`.
+    // TODO: Check for unifier-equivalence.
+    match psb.clone().step_if_easy() {
+    PsbEasyResult::Hard(hard) => {
+        assert_eq!(psb.to_nnf().is_valid(), hard.to_nnf().is_valid());
+    }
+    PsbEasyResult::Psi(psi) => {
+        assert_eq!(psb.to_nnf().is_valid(), psi.to_nnf().is_valid())
+    }
+    PsbEasyResult::Ps(ps) => {
+        assert_eq!(psb.to_nnf().is_valid(), ps.to_nnf().is_valid())
+    }
+    PsbEasyResult::Valid => assert!(psb.to_nnf().is_valid()),
+    PsbEasyResult::InValid => {
+        // There are kripke models in which the formula is false,
+        // no matter what substitution we apply. Not only is it
+        // not-valid, but also not unifiable.
+        assert!(!psb.to_nnf().is_valid())
+    }
+    }
+    }
+
+    #[test]
+    fn test_psi(psi in arb_psi()) {
     let mut psi_simpl = psi.clone();
     psi_simpl.simplify();
     assert!(NNF::equiv_dec(&psi.to_nnf(), &psi_simpl.to_nnf()));
