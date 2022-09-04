@@ -135,7 +135,7 @@ impl ClauseSet {
                 let is_irred = {
                     let mut clause_set = clause_set.lock().unwrap();
                     clause_set.unifiability_simplify();
-                    clause_set.waiting_atoms.is_empty() && clause_set.waiting_conj_disj.is_empty()
+                    clause_set.is_irred()
                 };
                 if is_irred {
                     // Otherwise return

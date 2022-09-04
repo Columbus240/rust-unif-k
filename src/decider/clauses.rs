@@ -1340,6 +1340,13 @@ impl ClauseSet {
         ClauseSet::from_clause_vec(vec![clause])
     }
 
+    /// The clause set is irreducibles, if the cut-rule has been applied to all sequents.
+    pub fn is_irred(&self) -> bool {
+        self.irreducibles.is_empty()
+            && self.waiting_atoms.is_empty()
+            && self.waiting_conj_disj.is_empty()
+    }
+
     pub fn from_clause_vec(clauses: Vec<ClauseWaiting>) -> ClauseSet {
         ClauseSet {
             cut_clauses: BTreeSet::new(),
