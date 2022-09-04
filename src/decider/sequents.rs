@@ -834,7 +834,7 @@ impl PSB {
         // If the sequent has no boxed formulae on the right, it is contradictory.
         // Making the whole clause contradictory.
         if self.rb.is_empty() {
-            return PsbEasyResult::Contradictory;
+            return PsbEasyResult::InValid;
         }
 
         // If the sequent has more than one boxed formula on the
@@ -877,7 +877,7 @@ pub enum PsbEasyResult {
     Psi(PSI),
     Ps(PS),
     Valid,
-    Contradictory,
+    InValid,
 }
 
 impl From<PSB> for PSI {

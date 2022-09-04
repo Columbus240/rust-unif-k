@@ -325,7 +325,7 @@ impl ClauseWaiting {
 
         while let Some(sequent) = waiting_atoms.pop() {
             match sequent.step_if_easy() {
-                PsbEasyResult::Contradictory => return ClauseWaiting::new_contradictory(),
+                PsbEasyResult::InValid => return ClauseWaiting::new_contradictory(),
                 PsbEasyResult::Hard(sequent) => {
                     hard_atoms.insert(sequent);
                 }
