@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::nnf::{NNF, NnfAtom};
-use crate::decider::{ClauseSetWaiting, ClauseWaiting, PSW};
+use crate::decider::{ClauseSet, ClauseWaiting, PSW};
 
 grammar;
 
@@ -65,4 +65,4 @@ LiteralSet : Vec<NNF> = Comma<Literal>;
 Sequent : PSW = <lw: LiteralSet> "=>" <rw: LiteralSet> => PSW::from_waiting(lw, rw);
 
 Clause : ClauseWaiting = "{" <psw: Semicolon<Sequent>> "}" => ClauseWaiting::from_psw_vec(psw);
-ClauseSet: ClauseSetWaiting = "{" <cl: Comma<Clause>> "}" => ClauseSetWaiting::from_clause_vec(cl);
+ClauseSet: ClauseSet = "{" <cl: Comma<Clause>> "}" => ClauseSet::from_clause_vec(cl);

@@ -1250,11 +1250,11 @@ proptest! {
 }
 */
 
-pub struct ClauseSetWaitingDisplayBeautiful<'a> {
-    clause_set: &'a ClauseSetWaiting,
+pub struct ClauseSetDisplayBeautiful<'a> {
+    clause_set: &'a ClauseSet,
 }
 
-impl<'a> std::fmt::Display for ClauseSetWaitingDisplayBeautiful<'a> {
+impl<'a> std::fmt::Display for ClauseSetDisplayBeautiful<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
 
@@ -1357,52 +1357,23 @@ impl<'a> std::fmt::Display for ClauseIrredDisplaySpartacus<'a> {
 }
 
 #[derive(Debug)]
-pub struct ClauseSetWaiting {
+pub struct ClauseSet {
     pub cut_clauses: BTreeSet<ClauseCut>,
     pub irreducibles: BTreeSet<ClauseIrred>,
     pub waiting_atoms: Vec<ClauseAtoms>,
     pub waiting_conj_disj: Vec<ClauseWaiting>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ClauseSetAtoms {
-    irreducibles: BTreeSet<ClauseIrred>,
-    waiting_atoms: Vec<ClauseAtoms>,
-}
-impl ClauseSetAtoms {
-    #[deprecated]
-    pub fn from_clause(clause: ClauseAtoms) -> ClauseSetAtoms {
-        ClauseSetAtoms {
-            irreducibles: BTreeSet::new(),
-            waiting_atoms: vec![clause],
-        }
+impl ClauseSet {
+    pub fn display_beautiful(&self) -> ClauseSetDisplayBeautiful {
+        ClauseSetDisplayBeautiful { clause_set: self }
     }
-}
-
-impl TryFrom<ClauseSetWaiting> for ClauseSetAtoms {
-    type Error = ClauseSetWaiting;
-    fn try_from(value: ClauseSetWaiting) -> Result<Self, Self::Error> {
-        if !value.waiting_conj_disj.is_empty() {
-            Err(value)
-        } else {
-            Ok(ClauseSetAtoms {
-                irreducibles: value.irreducibles,
-                waiting_atoms: value.waiting_atoms,
-            })
-        }
-    }
-}
-
-impl ClauseSetWaiting {
-    pub fn display_beautiful(&self) -> ClauseSetWaitingDisplayBeautiful {
-        ClauseSetWaitingDisplayBeautiful { clause_set: self }
-    }
-    pub fn from_clause(clause: ClauseWaiting) -> ClauseSetWaiting {
-        ClauseSetWaiting::from_clause_vec(vec![clause])
+    pub fn from_clause(clause: ClauseWaiting) -> ClauseSet {
+        ClauseSet::from_clause_vec(vec![clause])
     }
 
-    pub fn from_clause_vec(clauses: Vec<ClauseWaiting>) -> ClauseSetWaiting {
-        ClauseSetWaiting {
+    pub fn from_clause_vec(clauses: Vec<ClauseWaiting>) -> ClauseSet {
+        ClauseSet {
             cut_clauses: BTreeSet::new(),
             irreducibles: BTreeSet::new(),
             waiting_atoms: Vec::new(),
@@ -1410,18 +1381,8 @@ impl ClauseSetWaiting {
         }
     }
 
-    pub fn from_nnf(nnf: NNF) -> ClauseSetWaiting {
-        ClauseSetWaiting::from_clause(ClauseWaiting::from_nnf(nnf))
-    }
-
-    pub fn process_conjs(mut self) -> ClauseSetAtoms {
-        for clause in self.waiting_conj_disj.into_iter() {
-            self.waiting_atoms.push(clause.process_conjs())
-        }
-        ClauseSetAtoms {
-            irreducibles: self.irreducibles,
-            waiting_atoms: self.waiting_atoms,
-        }
+    pub fn from_nnf(nnf: NNF) -> ClauseSet {
+        ClauseSet::from_clause(ClauseWaiting::from_nnf(nnf))
     }
 
     pub fn unifiability_simplify(&mut self) {
@@ -1509,28 +1470,6 @@ impl ClauseSetWaiting {
         } else {
             Some(false)
         }
-    }
-}
-
-impl ClauseSetAtoms {
-    #[deprecated]
-    pub fn from_nnf(nnf: NNF) -> ClauseSetAtoms {
-        ClauseSetWaiting::from_nnf(nnf).process_conjs()
-    }
-
-    #[deprecated]
-    pub fn to_nnf_boxed(&self) -> NNF {
-        NNF::Or(
-            self.irreducibles
-                .iter()
-                .map(|clause| NNF::NnfBox(Box::new(ClauseIrred::to_nnf(clause))))
-                .chain(
-                    self.waiting_atoms
-                        .iter()
-                        .map(|clause| NNF::NnfBox(Box::new(ClauseAtoms::to_nnf(clause)))),
-                )
-                .collect(),
-        )
     }
 }
 

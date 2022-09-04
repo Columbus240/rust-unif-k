@@ -1,3 +1,4 @@
+//TODO: Make the algorithm terminate again and incorporate `ClauseCut` appropriately.
 use super::*;
 use crate::nnf::NNF;
 use std::collections::BTreeSet;
@@ -18,7 +19,7 @@ fn clause_waiting_unif_step(mut clause: ClauseWaiting) -> ClauseWaiting {
 fn check_unifiable_process_conjs(
     clause: ClauseWaiting,
     visited_clauses: Arc<Mutex<BTreeSet<ClauseAtoms>>>,
-    clause_set: Arc<Mutex<ClauseSetWaiting>>,
+    clause_set: Arc<Mutex<ClauseSet>>,
 ) -> bool {
     let mut clause = clause;
     loop {
@@ -56,7 +57,7 @@ fn check_unifiable_process_conjs(
 fn check_unifiable_process_atoms(
     clause: ClauseAtoms,
     visited_clauses: Arc<Mutex<BTreeSet<ClauseWaiting>>>,
-    clause_set: Arc<Mutex<ClauseSetWaiting>>,
+    clause_set: Arc<Mutex<ClauseSet>>,
 ) -> bool {
     match TryInto::<ClauseIrred>::try_into(clause) {
         Ok(clause_irred) => match clause_irred.simple_check_unifiability() {
@@ -104,8 +105,8 @@ fn check_unifiable_process_atoms(
     }
 }
 
-impl ClauseSetWaiting {
-    pub fn check_unifiable(self) -> Result<bool, ClauseSetWaiting> {
+impl ClauseSet {
+    pub fn check_unifiable(self) -> Result<bool, ClauseSet> {
         let mut visited_clauses: BTreeSet<ClauseWaiting> = BTreeSet::new();
         let mut visited_atoms: BTreeSet<ClauseAtoms> = BTreeSet::new();
         // Add the current clauses to the set of visited clauses
@@ -124,6 +125,11 @@ impl ClauseSetWaiting {
 
         let clause_set = Arc::new(Mutex::new(self));
 
+        {
+            let clause_set = clause_set.lock().unwrap();
+            eprintln!("start_of_loop {}", clause_set.display_beautiful());
+        }
+
         loop {
             {
                 let is_irred = {
@@ -133,13 +139,20 @@ impl ClauseSetWaiting {
                 };
                 if is_irred {
                     // Otherwise return
-                    let clause_set: ClauseSetWaiting =
+                    let clause_set: ClauseSet =
                         Arc::try_unwrap(clause_set).unwrap().into_inner().unwrap();
                     if let Some(b) = clause_set.is_unifiable() {
                         return Ok(b);
                     }
                     return Err(clause_set);
                 }
+            }
+            {
+                let clause_set = clause_set.lock().unwrap();
+                eprintln!(
+                    "simplified overall unifiability {}",
+                    clause_set.display_beautiful()
+                );
             }
             {
                 let clause_set_mutex = clause_set.clone();
@@ -160,6 +173,10 @@ impl ClauseSetWaiting {
                 }
             }
             {
+                let clause_set = clause_set.lock().unwrap();
+                eprintln!("processed waiting {}", clause_set.display_beautiful());
+            }
+            {
                 let clause_set_mutex = clause_set.clone();
                 let waiting_atoms;
                 {
@@ -177,6 +194,10 @@ impl ClauseSetWaiting {
                     return Ok(true);
                 }
             }
+            {
+                let clause_set = clause_set.lock().unwrap();
+                eprintln!("processed atoms {}", clause_set.display_beautiful());
+            }
         }
     }
 }
@@ -185,7 +206,7 @@ impl NNF {
     /// Returns `Some(true)` if the formula is unifiable.
     /// Returns `Some(false)` if the formula is not unifiable.
     /// Returns `None` if the algorithm can't decide.
-    pub fn check_unifiable(self) -> Result<bool, ClauseSetWaiting> {
+    pub fn check_unifiable(self) -> Result<bool, ClauseSet> {
         // First turn the formula into a sequent.
         let ps = {
             if let Some(ps) = PSW::from_nnf(self).into_ps() {
@@ -198,7 +219,7 @@ impl NNF {
 
         // Add the sequent to a clause
         let clause_waiting = ClauseWaiting::from_sequent(ps);
-        let clause_set: ClauseSetWaiting = ClauseSetWaiting::from_clause(clause_waiting);
+        let clause_set: ClauseSet = ClauseSet::from_clause(clause_waiting);
         clause_set.check_unifiable()
     }
 }
@@ -216,7 +237,7 @@ proptest! {
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {
             (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
-            (Err(_), _) => {},
+            (Err(e), _) => panic!("{}", e.display_beautiful()),
             (_, Err(_)) => {},
         }
     }
