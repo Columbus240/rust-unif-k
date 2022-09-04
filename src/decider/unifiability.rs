@@ -6,9 +6,9 @@ use std::sync::{Arc, Mutex};
 
 use rayon::prelude::*;
 
-fn clause_waiting_unif_step(mut clause: ClauseWaitingConj) -> ClauseWaitingConj {
+fn clause_waiting_unif_step(mut clause: ClauseWaiting) -> ClauseWaiting {
     clause.process_easy_conjs();
-    let mut clause = clause.process_easy_atoms();
+    let mut clause = clause.process_easy_boxes();
     clause.process_conjs_step();
     clause
 }
@@ -16,7 +16,7 @@ fn clause_waiting_unif_step(mut clause: ClauseWaitingConj) -> ClauseWaitingConj 
 /// Returns `true` if the clause is unifiable, returns `false` if it is undecided or not unifiable.
 /// All further clauses that are created by this function are stored both in `visited_clauses` and `clause_set`.
 fn check_unifiable_process_conjs(
-    clause: ClauseWaitingConj,
+    clause: ClauseWaiting,
     visited_clauses: Arc<Mutex<BTreeSet<ClauseAtoms>>>,
     clause_set: Arc<Mutex<ClauseSetWaiting>>,
 ) -> bool {
@@ -55,7 +55,7 @@ fn check_unifiable_process_conjs(
 
 fn check_unifiable_process_atoms(
     clause: ClauseAtoms,
-    visited_clauses: Arc<Mutex<BTreeSet<ClauseWaitingConj>>>,
+    visited_clauses: Arc<Mutex<BTreeSet<ClauseWaiting>>>,
     clause_set: Arc<Mutex<ClauseSetWaiting>>,
 ) -> bool {
     match TryInto::<ClauseIrred>::try_into(clause) {
@@ -106,7 +106,7 @@ fn check_unifiable_process_atoms(
 
 impl ClauseSetWaiting {
     pub fn check_unifiable(self) -> Result<bool, ClauseSetWaiting> {
-        let mut visited_clauses: BTreeSet<ClauseWaitingConj> = BTreeSet::new();
+        let mut visited_clauses: BTreeSet<ClauseWaiting> = BTreeSet::new();
         let mut visited_atoms: BTreeSet<ClauseAtoms> = BTreeSet::new();
         // Add the current clauses to the set of visited clauses
 
@@ -197,7 +197,7 @@ impl NNF {
         };
 
         // Add the sequent to a clause
-        let clause_waiting = ClauseWaitingConj::from_sequent(ps);
+        let clause_waiting = ClauseWaiting::from_sequent(ps);
         let clause_set: ClauseSetWaiting = ClauseSetWaiting::from_clause(clause_waiting);
         clause_set.check_unifiable()
     }

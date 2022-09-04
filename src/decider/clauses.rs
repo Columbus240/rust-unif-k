@@ -28,7 +28,7 @@ fn set_to_vec<T>(set: BTreeSet<T>) -> Vec<T> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ClauseWaitingConj {
+pub struct ClauseWaiting {
     // Sequents that contain at least one atom
     pub irreducibles: BTreeSet<PSI>,
 
@@ -39,29 +39,29 @@ pub struct ClauseWaitingConj {
     pub conj_disj_sequents: Vec<PS>,
 }
 
-impl ClauseWaitingConj {
+impl ClauseWaiting {
     pub fn display_beautiful(&self) -> ClauseWaitingDisplayBeautiful {
         ClauseWaitingDisplayBeautiful { clause: self }
     }
 
-    fn new_valid() -> ClauseWaitingConj {
-        ClauseWaitingConj {
+    fn new_valid() -> ClauseWaiting {
+        ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: BTreeSet::new(),
             conj_disj_sequents: Vec::new(),
         }
     }
 
-    pub fn from_sequent(ps: PS) -> ClauseWaitingConj {
-        ClauseWaitingConj {
+    pub fn from_sequent(ps: PS) -> ClauseWaiting {
+        ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: BTreeSet::new(),
             conj_disj_sequents: vec![ps],
         }
     }
 
-    pub fn from_psw_vec(psw: Vec<PSW>) -> ClauseWaitingConj {
-        ClauseWaitingConj {
+    pub fn from_psw_vec(psw: Vec<PSW>) -> ClauseWaiting {
+        ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: BTreeSet::new(),
             conj_disj_sequents: psw.into_iter().filter_map(PSW::into_ps).collect(),
@@ -131,7 +131,7 @@ impl ClauseWaitingConj {
 
         // If the two sets overlap, then we are contradictory.
         if !require_top.is_disjoint(&require_bot) {
-            *self = ClauseWaitingConj::new_contradictory();
+            *self = ClauseWaiting::new_contradictory();
             return;
         }
 
@@ -160,7 +160,7 @@ impl ClauseWaitingConj {
             if let Some(seq) = sequent.substitute_top_bot(&require_top, &require_bot) {
                 if seq.is_empty() {
                     // We found an empty sequent. So the whole clause is contradictory.
-                    *self = ClauseWaitingConj::new_contradictory();
+                    *self = ClauseWaiting::new_contradictory();
                     return;
                 }
                 self.atom_sequents.insert(seq);
@@ -263,26 +263,19 @@ impl ClauseWaitingConj {
     }
 }
 
-impl ClauseWaitingConj {
-    fn new_empty() -> ClauseWaitingConj {
-        ClauseWaitingConj {
-            irreducibles: BTreeSet::new(),
-            atom_sequents: BTreeSet::new(),
-            conj_disj_sequents: Vec::new(),
-        }
-    }
-    fn new_contradictory() -> ClauseWaitingConj {
+impl ClauseWaiting {
+    fn new_contradictory() -> ClauseWaiting {
         let mut set = BTreeSet::new();
         set.insert(PSB::new_contradictory());
-        ClauseWaitingConj {
+        ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: set,
             conj_disj_sequents: Vec::new(),
         }
     }
 
-    pub fn from_nnf(nnf: NNF) -> ClauseWaitingConj {
-        ClauseWaitingConj::from_psw(PSW::from_nnf(nnf))
+    pub fn from_nnf(nnf: NNF) -> ClauseWaiting {
+        ClauseWaiting::from_psw(PSW::from_nnf(nnf))
     }
 
     fn is_empty(&self) -> bool {
@@ -291,7 +284,7 @@ impl ClauseWaitingConj {
             && self.conj_disj_sequents.is_empty()
     }
 
-    fn from_psw(psw: PSW) -> ClauseWaitingConj {
+    fn from_psw(psw: PSW) -> ClauseWaiting {
         if let Some(sequent) = psw.into_ps() {
             // Sort the sequents into the right category.
             let mut irreducibles: BTreeSet<PSI> = BTreeSet::new();
@@ -308,13 +301,13 @@ impl ClauseWaitingConj {
                 conj_disj_sequents.push(sequent);
             }
 
-            ClauseWaitingConj {
+            ClauseWaiting {
                 irreducibles,
                 atom_sequents,
                 conj_disj_sequents,
             }
         } else {
-            ClauseWaitingConj::new_valid()
+            ClauseWaiting::new_valid()
         }
     }
 
@@ -326,7 +319,7 @@ impl ClauseWaitingConj {
 
     /// Only processes the `atom_sequents` which have at most a single boxed term on the right.
     /// This way we can avoid doing work twice in all branches.
-    pub fn process_easy_atoms(mut self) -> Self {
+    pub fn process_easy_boxes(mut self) -> Self {
         let mut hard_atoms = BTreeSet::new();
         let mut waiting_atoms: Vec<_> = self.atom_sequents.into_iter().collect();
 
@@ -334,7 +327,7 @@ impl ClauseWaitingConj {
             // If the sequent has no boxed formulae on the right, it is contradictory.
             // Making the whole clause contradictory.
             if sequent.rb.is_empty() {
-                return ClauseWaitingConj::new_contradictory();
+                return ClauseWaiting::new_contradictory();
             }
 
             // If the sequent has more than one boxed formula on the
@@ -531,7 +524,7 @@ impl ClauseWaitingConj {
         }
 
         // first process the easy atom sequents.
-        let clause = self.process_easy_atoms();
+        let clause = self.process_easy_boxes();
         let mut clause: ClauseAtoms = clause.process_conjs();
 
         // Shortcut, if the clause is valid or contradictory.
@@ -553,7 +546,7 @@ impl ClauseWaitingConj {
 
         // It is possible, that one of the newly generated sequents will be "trivially" true.
         // In such a case it suffices to add only the rest of the clause.
-        let mut delta_waiting_conj: Vec<ClauseWaitingConj> =
+        let mut delta_waiting_conj: Vec<ClauseWaiting> =
             Vec::with_capacity(waiting_atoms_sequent.rb.len());
 
         for delta in waiting_atoms_sequent.rb.into_iter() {
@@ -572,7 +565,7 @@ impl ClauseWaitingConj {
 
             if let Some(new_ps) = new_psw.into_ps() {
                 // Add the sequent to the current clause.
-                let mut new_clause: ClauseWaitingConj = clause.clone().into();
+                let mut new_clause: ClauseWaiting = clause.clone().into();
                 new_clause.conj_disj_sequents.push(new_ps);
                 delta_waiting_conj.push(new_clause);
             } else {
@@ -584,9 +577,9 @@ impl ClauseWaitingConj {
     }
 }
 
-impl TryFrom<ClauseWaitingConj> for ClauseAtoms {
-    type Error = ClauseWaitingConj;
-    fn try_from(value: ClauseWaitingConj) -> Result<Self, Self::Error> {
+impl TryFrom<ClauseWaiting> for ClauseAtoms {
+    type Error = ClauseWaiting;
+    fn try_from(value: ClauseWaiting) -> Result<Self, Self::Error> {
         if !value.conj_disj_sequents.is_empty() {
             Err(value)
         } else {
@@ -598,9 +591,9 @@ impl TryFrom<ClauseWaitingConj> for ClauseAtoms {
     }
 }
 
-impl From<ClauseAtoms> for ClauseWaitingConj {
+impl From<ClauseAtoms> for ClauseWaiting {
     fn from(value: ClauseAtoms) -> Self {
-        ClauseWaitingConj {
+        ClauseWaiting {
             irreducibles: value.irreducibles.into_iter().collect(),
             atom_sequents: value.atom_sequents.into_iter().collect(),
             conj_disj_sequents: Vec::new(),
@@ -608,7 +601,7 @@ impl From<ClauseAtoms> for ClauseWaitingConj {
     }
 }
 
-impl From<ClauseIrred> for ClauseWaitingConj {
+impl From<ClauseIrred> for ClauseWaiting {
     fn from(value: ClauseIrred) -> Self {
         From::<ClauseAtoms>::from(value.into())
     }
@@ -624,7 +617,7 @@ pub struct ClauseAtoms {
 
 impl ClauseAtoms {
     pub fn to_nnf(&self) -> NNF {
-        Into::<ClauseWaitingConj>::into(self.clone()).to_nnf()
+        Into::<ClauseWaiting>::into(self.clone()).to_nnf()
     }
 
     /// Returns `Some(false)` if the clause contains an empty sequent.
@@ -685,8 +678,8 @@ impl ClauseAtoms {
     }
 
     #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
-    pub fn unifiability_simplify(self) -> ClauseWaitingConj {
-        let mut clause: ClauseWaitingConj = self.into();
+    pub fn unifiability_simplify(self) -> ClauseWaiting {
+        let mut clause: ClauseWaiting = self.into();
         #[allow(deprecated)]
         clause.unifiability_simplify();
         clause
@@ -716,8 +709,8 @@ impl ClauseAtoms {
         }
 
         // first process the easy atom sequents.
-        let clause = ClauseWaitingConj::from(self);
-        let clause = clause.process_easy_atoms();
+        let clause = ClauseWaiting::from(self);
+        let clause = clause.process_easy_boxes();
         let mut clause: ClauseAtoms = clause.process_conjs();
 
         // Shortcut, if the clause is valid or contradictory.
@@ -739,7 +732,7 @@ impl ClauseAtoms {
 
         // It is possible, that one of the newly generated sequents will be "trivially" true.
         // In such a case it suffices to add only the rest of the clause.
-        let mut delta_waiting_conj: Vec<ClauseWaitingConj> =
+        let mut delta_waiting_conj: Vec<ClauseWaiting> =
             Vec::with_capacity(waiting_atoms_sequent.rb.len());
 
         for delta in waiting_atoms_sequent.rb.into_iter() {
@@ -758,7 +751,7 @@ impl ClauseAtoms {
 
             if let Some(new_ps) = new_psw.into_ps() {
                 // Add the sequent to the current clause.
-                let mut new_clause: ClauseWaitingConj = clause.clone().into();
+                let mut new_clause: ClauseWaiting = clause.clone().into();
                 new_clause.conj_disj_sequents.push(new_ps);
                 delta_waiting_conj.push(new_clause);
             } else {
@@ -791,9 +784,9 @@ pub struct ClauseIrred {
     pub irreducibles: BTreeSet<PSI>,
 }
 
-impl TryFrom<ClauseWaitingConj> for ClauseIrred {
-    type Error = ClauseWaitingConj;
-    fn try_from(value: ClauseWaitingConj) -> Result<Self, Self::Error> {
+impl TryFrom<ClauseWaiting> for ClauseIrred {
+    type Error = ClauseWaiting;
+    fn try_from(value: ClauseWaiting) -> Result<Self, Self::Error> {
         if !value.atom_sequents.is_empty() || !value.conj_disj_sequents.is_empty() {
             Err(value)
         } else {
@@ -1227,14 +1220,14 @@ fn arb_ps() -> impl Strategy<Value = PS> {
 }
 
 #[allow(dead_code)]
-fn arb_clause_waiting_conj() -> impl Strategy<Value = ClauseWaitingConj> {
+fn arb_clause_waiting_conj() -> impl Strategy<Value = ClauseWaiting> {
     (
         prop::collection::btree_set(arb_psi(), 0..10),
         prop::collection::btree_set(arb_psb(), 0..10),
         prop::collection::vec(arb_ps(), 0..10),
     )
         .prop_map(
-            |(irreducibles, atom_sequents, conj_disj_sequents)| ClauseWaitingConj {
+            |(irreducibles, atom_sequents, conj_disj_sequents)| ClauseWaiting {
                 irreducibles,
                 atom_sequents,
                 conj_disj_sequents,
@@ -1273,7 +1266,7 @@ impl<'a> std::fmt::Display for ClauseSetWaitingDisplayBeautiful<'a> {
             write!(
                 f,
                 " ; {} ; ",
-                Into::<ClauseWaitingConj>::into(clause.clone()).display_beautiful()
+                Into::<ClauseWaiting>::into(clause.clone()).display_beautiful()
             )?;
         }
 
@@ -1286,7 +1279,7 @@ impl<'a> std::fmt::Display for ClauseSetWaitingDisplayBeautiful<'a> {
 }
 
 pub struct ClauseWaitingDisplayBeautiful<'a> {
-    clause: &'a ClauseWaitingConj,
+    clause: &'a ClauseWaiting,
 }
 
 impl<'a> std::fmt::Display for ClauseWaitingDisplayBeautiful<'a> {
@@ -1368,7 +1361,7 @@ pub struct ClauseSetWaiting {
     pub cut_clauses: BTreeSet<ClauseCut>,
     pub irreducibles: BTreeSet<ClauseIrred>,
     pub waiting_atoms: Vec<ClauseAtoms>,
-    pub waiting_conj_disj: Vec<ClauseWaitingConj>,
+    pub waiting_conj_disj: Vec<ClauseWaiting>,
 }
 
 #[derive(Clone, Debug)]
@@ -1404,11 +1397,11 @@ impl ClauseSetWaiting {
     pub fn display_beautiful(&self) -> ClauseSetWaitingDisplayBeautiful {
         ClauseSetWaitingDisplayBeautiful { clause_set: self }
     }
-    pub fn from_clause(clause: ClauseWaitingConj) -> ClauseSetWaiting {
+    pub fn from_clause(clause: ClauseWaiting) -> ClauseSetWaiting {
         ClauseSetWaiting::from_clause_vec(vec![clause])
     }
 
-    pub fn from_clause_vec(clauses: Vec<ClauseWaitingConj>) -> ClauseSetWaiting {
+    pub fn from_clause_vec(clauses: Vec<ClauseWaiting>) -> ClauseSetWaiting {
         ClauseSetWaiting {
             cut_clauses: BTreeSet::new(),
             irreducibles: BTreeSet::new(),
@@ -1418,7 +1411,7 @@ impl ClauseSetWaiting {
     }
 
     pub fn from_nnf(nnf: NNF) -> ClauseSetWaiting {
-        ClauseSetWaiting::from_clause(ClauseWaitingConj::from_nnf(nnf))
+        ClauseSetWaiting::from_clause(ClauseWaiting::from_nnf(nnf))
     }
 
     pub fn process_conjs(mut self) -> ClauseSetAtoms {
@@ -1432,7 +1425,7 @@ impl ClauseSetWaiting {
     }
 
     pub fn unifiability_simplify(&mut self) {
-        let mut waiting_conj_disj: Vec<ClauseWaitingConj> =
+        let mut waiting_conj_disj: Vec<ClauseWaiting> =
             Vec::with_capacity(self.waiting_conj_disj.len());
 
         for clause_irred in std::mem::take(&mut self.irreducibles).into_iter() {
@@ -1550,7 +1543,7 @@ pub enum ProcessAtomsResult {
     Contradictory,
     Irred(ClauseIrred),
     Clause(ClauseAtoms),
-    Waiting(Vec<ClauseWaitingConj>),
+    Waiting(Vec<ClauseWaiting>),
 }
 
 use proptest::proptest;
@@ -1560,7 +1553,7 @@ proptest! {
     fn clause_process_clause_easy_atoms(clause in arb_clause_waiting_conj()) {
     let clause_is_valid = clause.to_nnf().is_valid();
     let clause_simplified = clause;
-    let clause_simplified = clause_simplified.process_easy_atoms();
+    let clause_simplified = clause_simplified.process_easy_boxes();
     assert_eq!(clause_is_valid, clause_simplified.to_nnf().is_valid());
     }
 
