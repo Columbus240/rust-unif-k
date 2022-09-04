@@ -825,6 +825,59 @@ impl PSB {
         // and simplify the boxed formulae
         Some(self)
     }
+
+    /// Transforms this sequent into equivalent sequents, if there is
+    /// at most one boxed formulae on the right.
+    ///
+    /// Returns `PsbEasyResult::Hard` iff it has more than one boxed formulae on the right.
+    pub fn step_if_easy(self) -> PsbEasyResult {
+        // If the sequent has no boxed formulae on the right, it is contradictory.
+        // Making the whole clause contradictory.
+        if self.rb.is_empty() {
+            return PsbEasyResult::Contradictory;
+        }
+
+        // If the sequent has more than one boxed formula on the
+        // right, applying the box-rule causes a branching, i.e. new clauses.
+        // This is "too complicated", so don't deal with these here.
+        if self.rb.len() > 1 {
+            return PsbEasyResult::Hard(self);
+        }
+
+        // "Remove" all the boxes, by moving the `lb` and `rb` into
+        // `lw` and `rw`.
+        let new_sequent: PSW = PSW {
+            atoms: BTreeMap::new(),
+            lb: Vec::new(),
+            rb: Vec::new(),
+            ld: Vec::new(),
+            rc: Vec::new(),
+            lw: self.lb,
+            rw: self.rb,
+        };
+
+        // if `to_ps` returns `None`, the sequent was valid and
+        // imposes no further restriction on `clause`.
+        if let Some(new_sequent) = new_sequent.into_ps() {
+            match TryInto::<PSI>::try_into(new_sequent) {
+                Ok(psi) => match TryInto::<PSB>::try_into(psi) {
+                    Ok(psb) => psb.step_if_easy(),
+                    Err(psi) => PsbEasyResult::Psi(psi),
+                },
+                Err(ps) => PsbEasyResult::Ps(ps),
+            }
+        } else {
+            PsbEasyResult::Valid
+        }
+    }
+}
+
+pub enum PsbEasyResult {
+    Hard(PSB),
+    Psi(PSI),
+    Ps(PS),
+    Valid,
+    Contradictory,
 }
 
 impl From<PSB> for PSI {

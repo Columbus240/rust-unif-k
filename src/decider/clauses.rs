@@ -324,48 +324,16 @@ impl ClauseWaiting {
         let mut waiting_atoms: Vec<_> = self.atom_sequents.into_iter().collect();
 
         while let Some(sequent) = waiting_atoms.pop() {
-            // If the sequent has no boxed formulae on the right, it is contradictory.
-            // Making the whole clause contradictory.
-            if sequent.rb.is_empty() {
-                return ClauseWaiting::new_contradictory();
-            }
-
-            // If the sequent has more than one boxed formula on the
-            // right, applying the box-rule causes a branching, i.e. new clauses.
-            // This is "too complicated", so don't deal with these here.
-            if sequent.rb.len() > 1 {
-                hard_atoms.insert(sequent);
-                continue;
-            }
-
-            let new_sequent: PSW = PSW {
-                atoms: BTreeMap::new(),
-                lb: Vec::new(),
-                rb: Vec::new(),
-                ld: Vec::new(),
-                rc: Vec::new(),
-                lw: sequent.lb,
-                rw: sequent.rb,
-            };
-
-            // if `to_ps` returns `None`, the sequent was valid and
-            // imposes no further restriction on `clause`.
-            if let Some(new_sequent) = new_sequent.into_ps() {
-                match TryInto::<PSI>::try_into(new_sequent) {
-                    Ok(psi) => match psi.try_into() {
-                        Ok(psb) => {
-                            waiting_atoms.push(psb);
-                        }
-                        Err(psi) => {
-                            self.irreducibles.insert(psi);
-                        }
-                    },
-                    Err(ps) => {
-                        self.conj_disj_sequents.push(ps);
-                    }
+            match sequent.step_if_easy() {
+                PsbEasyResult::Contradictory => return ClauseWaiting::new_contradictory(),
+                PsbEasyResult::Hard(sequent) => {
+                    hard_atoms.insert(sequent);
                 }
-            } else {
-                // This sequent is valid, so we can ignore it.
+                PsbEasyResult::Psi(psi) => {
+                    self.irreducibles.insert(psi);
+                }
+                PsbEasyResult::Ps(ps) => self.conj_disj_sequents.push(ps),
+                PsbEasyResult::Valid => {}
             }
         }
         self.atom_sequents = hard_atoms;
