@@ -152,7 +152,7 @@ impl FineFormIter {
 
     /// Output the next formula iff it is on the current level.
     pub fn next_curr_level(&mut self) -> Option<NNF> {
-        if self.full_powerset == None {
+        if self.full_powerset.is_none() {
             self.full_powerset = Some(BigInt::zero());
             return Some(NNF::Top);
         }

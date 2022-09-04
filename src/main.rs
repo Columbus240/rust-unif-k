@@ -1,5 +1,4 @@
 #![feature(once_cell)]
-#![allow(dead_code)]
 
 #[allow(unused_imports)]
 use std::collections::btree_map::BTreeMap;
@@ -12,7 +11,7 @@ use rayon::prelude::*;
 #[macro_use]
 extern crate lalrpop_util;
 
-lalrpop_mod!(pub nnf_parser, "/src/nnf_parser.rs");
+lalrpop_mod!(#[allow(clippy::all)] pub nnf_parser, "/src/nnf_parser.rs");
 
 mod decider;
 mod fineform_correct;
@@ -199,7 +198,8 @@ fn find_random_non_decidables() {
 }
 
 #[allow(dead_code)]
-fn find_non_decidables(mut ff_iter: FineFormIter) {
+fn find_non_decidables(num_variables: u8) {
+    let mut ff_iter = FineFormIter::new(num_variables);
     let mut i = 0;
     while let Some(nnf) = ff_iter.next() {
         match nnf.clone().check_unifiable() {
@@ -257,17 +257,28 @@ fn main() {
         .parse("([](0|~0) | (0&~0))")
         .unwrap();
 
-    formula0.check_unifiable();
+    let _ = formula0.check_unifiable();
     //check_unifiability_simpl(formula0);
 
+    for (i, nnf) in FineFormIter::new(1).enumerate() {
+        if i > 200 {
+            println!("start {}", i);
+        }
+        check_unifiability_simpl(nnf);
+        if i > 200 {
+            println!("end {}", i);
+        }
+    }
+
+    #[allow(dead_code)]
     fn check_unifiability_simpl(nnf: NNF) {
         let nnf_simpl = nnf.clone().simpl_slow();
-        let nnf_unif = nnf.check_unifiable();
+        let nnf_unif = nnf.clone().check_unifiable();
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {
             (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
             (Err(e), _) => panic!("{}", e.display_beautiful()),
-            (_, Err(_)) => {}
+            (_, Err(e)) => panic!("{}\n{}", nnf.display_beautiful(), e.display_beautiful()),
         }
     }
 

@@ -8,8 +8,9 @@ use rayon::prelude::*;
 
 fn clause_waiting_unif_step(mut clause: ClauseWaitingConj) -> ClauseWaitingConj {
     clause.process_easy_conjs();
-    let clause = clause.process_easy_atoms();
-    clause.process_conjs_step()
+    let mut clause = clause.process_easy_atoms();
+    clause.process_conjs_step();
+    clause
 }
 
 /// Returns `true` if the clause is unifiable, returns `false` if it is undecided or not unifiable.

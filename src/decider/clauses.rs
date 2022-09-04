@@ -72,10 +72,7 @@ impl ClauseWaitingConj {
     /// Returns `Some(true)` if the clause is empty
     /// Returns `None` otherwise
     fn simple_check_validity(&self) -> Option<bool> {
-        if self.irreducibles.is_empty()
-            && self.atom_sequents.is_empty()
-            && self.conj_disj_sequents.is_empty()
-        {
+        if self.is_empty() {
             return Some(true);
         }
         for psi in self.irreducibles.iter() {
@@ -191,6 +188,9 @@ impl ClauseWaitingConj {
         }
     }
 
+    //TODO: This code is probably not correct. Re-implement it for
+    // `ClauseIrred` or `ClauseCut`.
+    #[allow(dead_code)]
     fn unifiability_simplify_box_bot(&mut self) {
         // If there are clauses of the form `p ⇒ ⌷φ` and `p ⇒ ⌷~φ`
         // then `p` must have the form `⌷\bot \land p`.
@@ -379,10 +379,12 @@ impl ClauseWaitingConj {
         self
     }
 
-    pub fn process_conjs_step(mut self) -> ClauseWaitingConj {
-        let mut new_ps_vec: Vec<PS> = Vec::new();
+    pub fn process_conjs_step(&mut self) {
+        // Move `self.conj_disj_sequents` into `old_ps_vec` and replace it with a new vector.
+        let old_ps_vec: Vec<PS> = std::mem::take(&mut self.conj_disj_sequents);
 
-        for ps in self.conj_disj_sequents.into_iter() {
+        // Then process those sequents and insert the resulting sequents in `self` again.
+        for ps in old_ps_vec.into_iter() {
             match ps.process_conjs_step() {
                 PSConjsResult::Boxes(psb) => {
                     self.atom_sequents.insert(psb);
@@ -390,22 +392,18 @@ impl ClauseWaitingConj {
                 PSConjsResult::Irred(psi) => {
                     self.irreducibles.insert(psi);
                 }
-                PSConjsResult::NewPS(mut new_ps) => new_ps_vec.append(&mut new_ps),
+                PSConjsResult::NewPS(mut new_ps) => self.conj_disj_sequents.append(&mut new_ps),
             }
         }
-
-        self.conj_disj_sequents = new_ps_vec;
-        self
     }
 
-    pub fn process_conjs(self) -> ClauseAtoms {
-        let mut clause = self;
+    pub fn process_conjs(mut self) -> ClauseAtoms {
         loop {
-            match clause.try_into() {
+            match self.try_into() {
                 Ok(clause_atoms) => return clause_atoms,
                 Err(mut clause_next) => {
-                    clause_next.process_easy_conjs();
-                    clause = clause_next.process_conjs_step();
+                    clause_next.process_conjs_step();
+                    self = clause_next;
                 }
             }
         }
@@ -625,22 +623,8 @@ pub struct ClauseAtoms {
 }
 
 impl ClauseAtoms {
-    fn new_empty() -> ClauseAtoms {
-        ClauseAtoms {
-            irreducibles: BTreeSet::new(),
-            atom_sequents: Vec::new(),
-        }
-    }
-
     pub fn to_nnf(&self) -> NNF {
         Into::<ClauseWaitingConj>::into(self.clone()).to_nnf()
-    }
-
-    fn new_contradictory() -> ClauseAtoms {
-        ClauseAtoms {
-            irreducibles: BTreeSet::new(),
-            atom_sequents: vec![PSB::new_contradictory()],
-        }
     }
 
     /// Returns `Some(false)` if the clause contains an empty sequent.
@@ -698,12 +682,6 @@ impl ClauseAtoms {
         }
 
         None
-    }
-
-    fn substitute(self, substitution: &BTreeMap<NnfAtom, NNF>) -> ClauseWaitingConj {
-        let mut clause_waiting_conj: ClauseWaitingConj = self.into();
-        clause_waiting_conj.substitute(substitution);
-        clause_waiting_conj
     }
 
     #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
@@ -849,12 +827,6 @@ impl From<ClauseIrred> for ClauseAtoms {
 }
 
 impl ClauseIrred {
-    fn new_empty() -> ClauseIrred {
-        ClauseIrred {
-            irreducibles: BTreeSet::new(),
-        }
-    }
-
     fn new_contradictory() -> ClauseIrred {
         ClauseIrred {
             irreducibles: {
@@ -920,6 +892,11 @@ impl ClauseIrred {
         // If the two sets are both empty, there is nothing to do.
         if require_top.is_empty() && require_bot.is_empty() {
             return Ok(self);
+        }
+
+        // If the two sets overlap, then we are contradictory.
+        if !require_top.is_disjoint(&require_bot) {
+            return Ok(ClauseIrred::new_contradictory());
         }
 
         // is true, if further simplifications are possible
@@ -1041,7 +1018,7 @@ impl ClauseIrred {
     /// is valid.
     /// Returns `None` otherwise
     fn simple_check_validity(&self) -> Option<bool> {
-        if self.irreducibles.is_empty() {
+        if self.is_empty() {
             return Some(true);
         }
         for sequent in self.irreducibles.iter() {

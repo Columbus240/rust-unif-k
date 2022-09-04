@@ -759,24 +759,6 @@ impl PS {
             }
         }
     }
-
-    fn into_psi(self) -> Vec<PSI> {
-        match self.process_conjs_step() {
-            PSConjsResult::Boxes(psb) => {
-                vec![psb.into()]
-            }
-            PSConjsResult::Irred(psi) => {
-                vec![psi]
-            }
-            PSConjsResult::NewPS(ps_vec) => {
-                let mut output = Vec::with_capacity(ps_vec.len());
-                for ps in ps_vec {
-                    output.append(&mut ps.into_psi());
-                }
-                output
-            }
-        }
-    }
 }
 
 /// Processing Sequent Boxes
