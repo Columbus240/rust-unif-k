@@ -457,18 +457,21 @@ impl PSW {
 
     /// Transforms the given `PSW` into an equivalent but simpler `PS`.
     /// Returns `None` if the input is valid.
-    pub fn into_ps(self) -> Option<PS> {
-        if self.lw.is_empty() && self.rw.is_empty() {
-            return Some(PS {
-                atoms: self.atoms,
-                lb: self.lb,
-                rb: self.rb,
-                ld: self.ld,
-                rc: self.rc,
-            });
+    pub fn into_ps(mut self) -> Option<PS> {
+        loop {
+            if self.lw.is_empty() && self.rw.is_empty() {
+                return Some(PS {
+                    atoms: self.atoms,
+                    lb: self.lb,
+                    rb: self.rb,
+                    ld: self.ld,
+                    rc: self.rc,
+                });
+            }
+
+            // Otherwise there is more processing that needs to be done.
+            self = self.into_ps_step()?;
         }
-        // Otherwise there is more processing that needs to be done.
-        self.into_ps_step()?.into_ps()
     }
 }
 
