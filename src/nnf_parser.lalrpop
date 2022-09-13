@@ -55,6 +55,7 @@ pub Literal: NNF = {
 
     "(" <v:Ampersand<Literal>> ")" => NNF::And(v),
     "(" <v:Pipe<Literal>> ")" => NNF::Or(v),
+    "(" <phi:Literal> ")" => phi,
 
     "[]" <phi:Literal> => NNF::boxx(phi),
     "<>" <phi:Literal> => NNF::dia(phi),

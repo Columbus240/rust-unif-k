@@ -12,6 +12,10 @@ impl NNF {
     pub fn display_spartacus(&self) -> DisplaySpartacus {
         DisplaySpartacus { nnf: self }
     }
+
+    pub fn display_parser(&self) -> DisplayParser {
+        DisplayParser { nnf: self }
+    }
 }
 
 pub struct DisplayBeautiful<'a> {
@@ -168,6 +172,67 @@ impl<'a> std::fmt::Display for DisplaySpartacus<'a> {
             }
             NNF::NnfDia(phi0) => {
                 write!(f, "<a>{}", phi0.display_spartacus())
+            }
+        }
+    }
+}
+
+pub struct DisplayParser<'a> {
+    nnf: &'a NNF,
+}
+
+impl<'a> std::fmt::Display for DisplayParser<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.nnf {
+            NNF::Top => write!(f, "T"),
+            NNF::Bot => write!(f, "B"),
+            NNF::AtomPos(i) => write!(f, "{}", i),
+            NNF::AtomNeg(i) => write!(f, "~{}", i),
+            NNF::And(s) => {
+                if s.is_empty() {
+                    return write!(f, "T");
+                }
+
+                write!(f, "(")?;
+
+                let mut set_iter = s.iter();
+
+                match set_iter.next() {
+                    None => write!(f, "T")?,
+                    Some(x) => write!(f, "{}", x.display_parser())?,
+                }
+
+                for phi in set_iter {
+                    write!(f, "&{}", phi.display_parser())?;
+                }
+
+                write!(f, ")")
+            }
+            NNF::Or(s) => {
+                if s.is_empty() {
+                    return write!(f, "B");
+                }
+
+                write!(f, "(")?;
+
+                let mut set_iter = s.iter();
+
+                match set_iter.next() {
+                    None => write!(f, "B")?,
+                    Some(x) => write!(f, "{}", x.display_parser())?,
+                }
+
+                for phi in set_iter {
+                    write!(f, "|{}", phi.display_parser())?;
+                }
+
+                write!(f, ")")
+            }
+            NNF::NnfBox(phi0) => {
+                write!(f, "[]{}", phi0.display_parser())
+            }
+            NNF::NnfDia(phi0) => {
+                write!(f, "<>{}", phi0.display_parser())
             }
         }
     }
