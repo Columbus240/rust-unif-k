@@ -6,27 +6,6 @@ use proptest::prelude::*;
 use super::sequents::*;
 use crate::nnf::{NnfAtom, NNF};
 
-pub fn push_if_not_exists<T: PartialEq>(vec: &mut Vec<T>, t: T) {
-    let mut exists = false;
-
-    for t0 in vec.iter() {
-        if t == *t0 {
-            exists = true;
-            break;
-        }
-    }
-
-    if !exists {
-        vec.push(t);
-    }
-}
-
-fn set_to_vec<T>(set: BTreeSet<T>) -> Vec<T> {
-    let mut vec = Vec::with_capacity(set.len());
-    vec.extend(set.into_iter());
-    vec
-}
-
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct ClauseWaiting {
     // Sequents that contain at least one atom
@@ -190,6 +169,7 @@ impl ClauseWaiting {
 
     //TODO: This code is probably not correct. Re-implement it for
     // `ClauseIrred` or `ClauseCut`.
+    /*
     #[allow(dead_code)]
     fn unifiability_simplify_box_bot(&mut self) {
         // If there are clauses of the form `p ⇒ ⌷φ` and `p ⇒ ⌷~φ`
@@ -254,6 +234,7 @@ impl ClauseWaiting {
             .collect();
         self.substitute(&substitution)
     }
+    */
 
     #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
     pub fn unifiability_simplify(&mut self) {
@@ -522,12 +503,12 @@ impl ClauseWaiting {
             let new_psw = PSW {
                 // recall that `waiting_atoms_sequent.atoms` is empty
                 atoms: BTreeMap::new(),
-                lb: Vec::new(),
-                rb: Vec::new(),
+                lb: BTreeSet::new(),
+                rb: BTreeSet::new(),
                 ld: Vec::new(),
                 rc: Vec::new(),
                 // the currently boxed left formulae, but without their boxes
-                lw: waiting_atoms_sequent.lb.clone(),
+                lw: waiting_atoms_sequent.lb.iter().cloned().collect(),
                 rw: vec![delta],
             };
 
@@ -708,12 +689,12 @@ impl ClauseAtoms {
             let new_psw = PSW {
                 // recall that `waiting_atoms_sequent.atoms` is empty
                 atoms: BTreeMap::new(),
-                lb: Vec::new(),
-                rb: Vec::new(),
+                lb: BTreeSet::new(),
+                rb: BTreeSet::new(),
                 ld: Vec::new(),
                 rc: Vec::new(),
                 // the currently boxed left formulae, but without their boxes
-                lw: waiting_atoms_sequent.lb.clone(),
+                lw: waiting_atoms_sequent.lb.iter().cloned().collect(),
                 rw: vec![delta],
             };
 
@@ -1106,14 +1087,12 @@ impl ClauseIrred {
                         // This would create way too many
                         // duplicates. Using the `BTreeSet` we can
                         // check for uniqueness.
-                        let mut new_lb_set: BTreeSet<NNF> = BTreeSet::new();
-                        new_lb_set.extend(left_sequent.lb.iter().cloned());
-                        new_lb_set.extend(right_sequent.lb.iter().cloned());
-                        let new_lb = set_to_vec(new_lb_set);
-                        let mut new_rb_set: BTreeSet<NNF> = BTreeSet::new();
-                        new_rb_set.extend(left_sequent.rb.iter().cloned());
-                        new_rb_set.extend(right_sequent.rb.iter().cloned());
-                        let new_rb = set_to_vec(new_rb_set);
+                        let mut new_lb: BTreeSet<NNF> = BTreeSet::new();
+                        new_lb.extend(left_sequent.lb.iter().cloned());
+                        new_lb.extend(right_sequent.lb.iter().cloned());
+                        let mut new_rb: BTreeSet<NNF> = BTreeSet::new();
+                        new_rb.extend(left_sequent.rb.iter().cloned());
+                        new_rb.extend(right_sequent.rb.iter().cloned());
 
                         let new_sequent: PSI = PSI {
                             atoms: new_atoms,
@@ -1192,14 +1171,12 @@ fn arb_clause_irred() -> impl Strategy<Value = ClauseIrred> {
         .prop_map(|irreducibles| ClauseIrred { irreducibles })
 }
 
-/*
 proptest! {
  #[test]
  fn simplify_equiv(clause in arb_clause_irred()) {
      assert!(NNF::equiv_dec(&clause.clone().to_nnf(), &clause.simplify().to_nnf()));
  }
 }
-*/
 
 pub struct ClauseSetDisplayBeautiful<'a> {
     clause_set: &'a ClauseSet,

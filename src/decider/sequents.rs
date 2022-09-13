@@ -3,7 +3,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use proptest::prelude::*;
 use proptest_derive::Arbitrary;
 
-use super::clauses::push_if_not_exists;
 use crate::nnf::{NnfAtom, NNF};
 
 #[derive(Arbitrary, Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -21,9 +20,9 @@ pub struct PSW {
     pub atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
-    pub lb: Vec<NNF>,
+    pub lb: BTreeSet<NNF>,
     // right boxes
-    pub rb: Vec<NNF>,
+    pub rb: BTreeSet<NNF>,
 
     // left disjunctions
     pub ld: Vec<Vec<NNF>>,
@@ -41,8 +40,8 @@ impl PSW {
     pub fn new_contradictory() -> PSW {
         PSW {
             atoms: BTreeMap::new(),
-            lb: Vec::new(),
-            rb: Vec::new(),
+            lb: BTreeSet::new(),
+            rb: BTreeSet::new(),
             ld: Vec::new(),
             rc: Vec::new(),
             lw: Vec::new(),
@@ -58,8 +57,8 @@ impl PSW {
     pub fn from_waiting(lw: Vec<NNF>, rw: Vec<NNF>) -> PSW {
         PSW {
             atoms: BTreeMap::new(),
-            lb: Vec::new(),
-            rb: Vec::new(),
+            lb: BTreeSet::new(),
+            rb: BTreeSet::new(),
             ld: Vec::new(),
             rc: Vec::new(),
             lw,
@@ -130,9 +129,9 @@ pub struct PS {
     pub atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
-    pub lb: Vec<NNF>,
+    pub lb: BTreeSet<NNF>,
     // right boxes
-    pub rb: Vec<NNF>,
+    pub rb: BTreeSet<NNF>,
 
     // left disjunctions
     pub ld: Vec<Vec<NNF>>,
@@ -148,9 +147,9 @@ pub struct PSI {
     pub atoms: BTreeMap<NnfAtom, LeftRight>,
 
     // left boxes
-    pub lb: Vec<NNF>,
+    pub lb: BTreeSet<NNF>,
     // right boxes
-    pub rb: Vec<NNF>,
+    pub rb: BTreeSet<NNF>,
 }
 
 impl TryFrom<PS> for PSI {
@@ -188,8 +187,8 @@ impl PSI {
     pub fn new_empty() -> PSI {
         PSI {
             atoms: BTreeMap::new(),
-            lb: Vec::new(),
-            rb: Vec::new(),
+            lb: BTreeSet::new(),
+            rb: BTreeSet::new(),
         }
     }
 
@@ -202,12 +201,22 @@ impl PSI {
     }
 
     pub fn substitute(mut self, substitution: &BTreeMap<NnfAtom, NNF>) -> PSW {
-        for phi in self.lb.iter_mut() {
-            phi.substitute(substitution);
-        }
-        for phi in self.rb.iter_mut() {
-            phi.substitute(substitution);
-        }
+        self.lb = self
+            .lb
+            .into_iter()
+            .map(|mut phi| {
+                phi.substitute(substitution);
+                phi
+            })
+            .collect();
+        self.rb = self
+            .rb
+            .into_iter()
+            .map(|mut phi| {
+                phi.substitute(substitution);
+                phi
+            })
+            .collect();
 
         let mut lw = Vec::new();
         let mut rw = Vec::new();
@@ -236,32 +245,23 @@ impl PSI {
 
     pub fn simplify(&mut self) {
         // Remove box top from the left
-        let mut i = 0;
-        while i < self.lb.len() {
-            if self.lb[i] != NNF::Top {
-                i += 1;
-            } else if self.lb[i] == NNF::Bot {
-                // If there are boxes on the right, this sequent is valid.
-                if !self.rb.is_empty() {
-                    *self = PSI::new_valid();
-                    return;
-                }
-                // We can remove all other boxes on the left
-                self.lb.clear();
-                self.lb.push(NNF::Bot);
-                break;
-            } else {
-                self.lb.swap_remove(i);
-            }
-        }
-        let mut i = 0;
-        while i < self.rb.len() {
-            if self.rb[i] == NNF::Top {
-                // we found a trivial box on the right. => this sequent is valid.
+        self.lb.remove(&NNF::Top);
+
+        if self.lb.contains(&NNF::Bot) {
+            // If there are boxes on the right, this sequent is valid.
+            if !self.rb.is_empty() {
                 *self = PSI::new_valid();
                 return;
             }
-            i += 1;
+            // We can remove all other boxes on the left
+            self.lb.clear();
+            self.lb.insert(NNF::Bot);
+        }
+
+        if self.rb.contains(&NNF::Top) {
+            // we found a trivial box on the right. => this sequent is valid.
+            *self = PSI::new_valid();
+            return;
         }
 
         for left_box in self.lb.iter() {
@@ -290,8 +290,12 @@ impl PSI {
     pub fn new_valid() -> PSI {
         PSI {
             atoms: BTreeMap::new(),
-            lb: Vec::new(),
-            rb: vec![NNF::Top],
+            lb: BTreeSet::new(),
+            rb: {
+                let mut set = BTreeSet::new();
+                set.insert(NNF::Top);
+                set
+            },
         }
     }
 
@@ -328,18 +332,16 @@ impl PSI {
         }
 
         // now perform the substitution on the boxed formulae
-        for box_left in self.lb.iter_mut() {
-            *box_left = box_left
-                .clone()
-                .substitute_top_bot(subst_top, subst_bot)
-                .simpl();
-        }
-        for box_right in self.lb.iter_mut() {
-            *box_right = box_right
-                .clone()
-                .substitute_top_bot(subst_top, subst_bot)
-                .simpl();
-        }
+        self.lb = self
+            .lb
+            .into_iter()
+            .map(|phi| phi.substitute_top_bot(subst_top, subst_bot).simpl())
+            .collect();
+        self.rb = self
+            .rb
+            .into_iter()
+            .map(|phi| phi.substitute_top_bot(subst_top, subst_bot).simpl())
+            .collect();
         // and simplify the boxed formulae
         Some(self)
     }
@@ -410,10 +412,10 @@ impl PSW {
                     self.ld.push(disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    push_if_not_exists(&mut self.lb, *phi);
+                    self.lb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    push_if_not_exists(&mut self.rb, phi.neg());
+                    self.rb.insert(phi.neg());
                 }
             }
         }
@@ -444,10 +446,10 @@ impl PSW {
                     new_right_waiting.append(&mut disjuncts);
                 }
                 NNF::NnfBox(phi) => {
-                    push_if_not_exists(&mut self.rb, *phi);
+                    self.rb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    push_if_not_exists(&mut self.lb, phi.neg());
+                    self.lb.insert(phi.neg());
                 }
             }
         }
@@ -498,20 +500,24 @@ impl PS {
     pub fn new_valid() -> PS {
         PS {
             atoms: BTreeMap::new(),
-            lb: Vec::new(),
-            rb: Vec::new(),
+            lb: BTreeSet::new(),
+            rb: BTreeSet::new(),
             ld: vec![vec![NNF::Bot]],
             rc: Vec::new(),
         }
     }
 
     pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
-        for phi in self.lb.iter_mut() {
+        let old_lb = std::mem::take(&mut self.lb);
+        self.lb.extend(old_lb.into_iter().map(|mut phi| {
             phi.substitute(substitution);
-        }
-        for phi in self.rb.iter_mut() {
+            phi
+        }));
+        let old_rb = std::mem::take(&mut self.rb);
+        self.rb.extend(old_rb.into_iter().map(|mut phi| {
             phi.substitute(substitution);
-        }
+            phi
+        }));
         for vec in self.ld.iter_mut() {
             for phi in vec.iter_mut() {
                 phi.substitute(substitution);
@@ -587,22 +593,16 @@ impl PS {
         }
 
         // now perform the substitution on the boxed formulae and simplify them
-        for box_left in self.lb.iter_mut() {
-            *box_left = box_left
-                .clone()
-                .substitute_top_bot(subst_top, subst_bot)
-                .simpl();
-        }
-        for box_right in self.rb.iter_mut() {
-            *box_right = box_right
-                .clone()
-                .substitute_top_bot(subst_top, subst_bot)
-                .simpl();
-            if *box_right == NNF::Top {
-                // We found a box-top on the right, so this sequent is valid.
-                return None;
-            }
-        }
+        self.lb = self
+            .lb
+            .into_iter()
+            .map(|phi| phi.substitute_top_bot(subst_top, subst_bot).simpl())
+            .collect();
+        self.rb = self
+            .rb
+            .into_iter()
+            .map(|phi| phi.substitute_top_bot(subst_top, subst_bot).simpl())
+            .collect();
 
         // perform the substitution on the left/right conjunctions/disjunctions
         // TODO: It is possible to perform some ad-hoc optimisations
@@ -665,8 +665,8 @@ impl PS {
 
             let new_psw: PSW = PSW {
                 atoms: BTreeMap::new(),
-                lb: Vec::new(),
-                rb: Vec::new(),
+                lb: BTreeSet::new(),
+                rb: BTreeSet::new(),
                 ld: Vec::new(),
                 rc: Vec::new(),
                 lw: Vec::new(),
@@ -709,8 +709,8 @@ impl PS {
 
             let new_psw: PSW = PSW {
                 atoms: BTreeMap::new(),
-                lb: Vec::new(),
-                rb: Vec::new(),
+                lb: BTreeSet::new(),
+                rb: BTreeSet::new(),
                 ld: Vec::new(),
                 rc: Vec::new(),
                 lw: disjuncts,
@@ -767,15 +767,15 @@ impl PS {
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct PSB {
-    pub lb: Vec<NNF>,
-    pub rb: Vec<NNF>,
+    pub lb: BTreeSet<NNF>,
+    pub rb: BTreeSet<NNF>,
 }
 
 impl PSB {
     pub fn new_contradictory() -> PSB {
         PSB {
-            lb: Vec::new(),
-            rb: Vec::new(),
+            lb: BTreeSet::new(),
+            rb: BTreeSet::new(),
         }
     }
     pub fn is_empty(&self) -> bool {
@@ -786,12 +786,16 @@ impl PSB {
     }
 
     pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
-        for phi in self.lb.iter_mut() {
+        let old_lb = std::mem::take(&mut self.lb);
+        self.lb.extend(old_lb.into_iter().map(|mut phi| {
             phi.substitute(substitution);
-        }
-        for phi in self.rb.iter_mut() {
+            phi
+        }));
+        let old_rb = std::mem::take(&mut self.rb);
+        self.rb.extend(old_rb.into_iter().map(|mut phi| {
             phi.substitute(substitution);
-        }
+            phi
+        }));
     }
 
     /// requires that the two sets don't intersect.
@@ -807,22 +811,17 @@ impl PSB {
         }
 
         // now perform the substitution on the boxed formulae
-        for box_left in self.lb.iter_mut() {
-            *box_left = box_left
-                .clone()
-                .substitute_top_bot(subst_top, subst_bot)
-                .simpl();
-        }
-        for box_right in self.lb.iter_mut() {
-            *box_right = box_right
-                .clone()
-                .substitute_top_bot(subst_top, subst_bot)
-                .simpl();
-            if *box_right == NNF::Top {
-                // We have box-top on the right, so this sequent is valid.
-                return None;
-            }
-        }
+        self.lb = self
+            .lb
+            .into_iter()
+            .map(|box_left| box_left.substitute_top_bot(subst_top, subst_bot))
+            .collect();
+        self.rb = self
+            .rb
+            .into_iter()
+            .map(|box_right| box_right.substitute_top_bot(subst_top, subst_bot))
+            .collect();
+
         // and simplify the boxed formulae
         Some(self)
     }
@@ -849,12 +848,20 @@ impl PSB {
         // `lw` and `rw`.
         let new_sequent: PSW = PSW {
             atoms: BTreeMap::new(),
-            lb: Vec::new(),
-            rb: Vec::new(),
+            lb: BTreeSet::new(),
+            rb: BTreeSet::new(),
             ld: Vec::new(),
             rc: Vec::new(),
-            lw: self.lb,
-            rw: self.rb,
+            lw: {
+                let mut lw = Vec::with_capacity(self.lb.len());
+                lw.extend(self.lb.into_iter());
+                lw
+            },
+            rw: {
+                let mut rw = Vec::with_capacity(self.rb.len());
+                rw.extend(self.rb.into_iter());
+                rw
+            },
         };
 
         // if `to_ps` returns `None`, the sequent was valid and
@@ -910,8 +917,8 @@ impl TryFrom<PS> for PSB {
 pub fn arb_psi() -> impl Strategy<Value = PSI> {
     (
         prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::btree_set(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::btree_set(crate::nnf::arb_nnf(), 0..3),
     )
         .prop_map(|(atoms, lb, rb)| PSI { atoms, lb, rb })
 }
@@ -919,8 +926,8 @@ pub fn arb_psi() -> impl Strategy<Value = PSI> {
 #[allow(dead_code)]
 pub fn arb_psb() -> impl Strategy<Value = PSB> {
     (
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::btree_set(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::btree_set(crate::nnf::arb_nnf(), 0..3),
     )
         .prop_map(|(lb, rb)| PSB { lb, rb })
 }
@@ -929,8 +936,8 @@ pub fn arb_psb() -> impl Strategy<Value = PSB> {
 pub fn arb_ps() -> impl Strategy<Value = PS> {
     (
         prop::collection::btree_map(any::<NnfAtom>(), any::<LeftRight>(), 0..10),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
-        prop::collection::vec(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::btree_set(crate::nnf::arb_nnf(), 0..3),
+        prop::collection::btree_set(crate::nnf::arb_nnf(), 0..3),
         prop::collection::vec(prop::collection::vec(crate::nnf::arb_nnf(), 0..3), 0..3),
         prop::collection::vec(prop::collection::vec(crate::nnf::arb_nnf(), 0..3), 0..3),
     )
