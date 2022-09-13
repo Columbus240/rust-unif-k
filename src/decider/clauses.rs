@@ -500,7 +500,11 @@ impl ClauseAtoms {
         let mut delta_waiting_conj: Vec<ClauseWaiting> =
             Vec::with_capacity(waiting_atoms_sequent.rb.len());
 
-        for delta in waiting_atoms_sequent.rb.into_iter() {
+        let mut right_box_iter = waiting_atoms_sequent.rb.into_iter();
+        // Put aside an element, so we can treat it last, and don't have to clone stuff.
+        let right_box_aside = right_box_iter.next();
+
+        for delta in right_box_iter {
             // Write down the new sequent
             let new_psw = PSW {
                 // recall that `waiting_atoms_sequent.atoms` is empty
@@ -517,6 +521,33 @@ impl ClauseAtoms {
             if let Some(new_ps) = new_psw.into_ps() {
                 // Add the sequent to the current clause.
                 let mut new_clause: ClauseWaiting = clause.clone().into();
+                new_clause.conj_disj_sequents.insert(new_ps);
+                delta_waiting_conj.push(new_clause);
+            } else {
+                // If the new sequent is "trivially" valid, then the
+                // atom-sequent we started with is also valid, so we
+                // can forget about it and simply return the `clause`.
+                return ProcessAtomsResult::Clause(clause);
+            }
+        }
+
+        if let Some(delta) = right_box_aside {
+            // Write down the new sequent
+            let new_psw = PSW {
+                // recall that `waiting_atoms_sequent.atoms` is empty
+                atoms: BTreeMap::new(),
+                lb: BTreeSet::new(),
+                rb: BTreeSet::new(),
+                ld: Vec::new(),
+                rc: Vec::new(),
+                // the currently boxed left formulae, but without their boxes
+                lw: waiting_atoms_sequent.lb.into_iter().collect(),
+                rw: vec![delta],
+            };
+
+            if let Some(new_ps) = new_psw.into_ps() {
+                // Add the sequent to the current clause.
+                let mut new_clause: ClauseWaiting = clause.into();
                 new_clause.conj_disj_sequents.insert(new_ps);
                 delta_waiting_conj.push(new_clause);
             } else {
