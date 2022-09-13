@@ -253,17 +253,34 @@ fn main() {
         .build_global()
         .unwrap();
 
-    let formula0: NNF = nnf_parser::LiteralParser::new()
-        .parse("([](0|~0) | (0&~0))")
+    let formula = nnf_parser::LiteralParser::new()
+        .parse("((0&[](0&~0))|(~0&<>~0&[]~0)|(~0&<>0&[]0)|(~0&<>~0&<>0))")
         .unwrap();
+    let formula_simpl = formula.clone().simpl_slow();
+    println!(
+        "{} to {}",
+        formula.display_beautiful(),
+        formula_simpl.display_beautiful()
+    );
 
-    let _ = formula0.check_unifiable();
-    //check_unifiability_simpl(formula0);
+    let formula_simpl_unif = formula_simpl.check_unifiable().expect_err("WTF");
+    assert!(formula_simpl_unif.irreducibles.is_empty());
+    assert!(formula_simpl_unif.waiting_atoms.is_empty());
+    assert!(formula_simpl_unif.waiting_conj_disj.is_empty());
+    assert_eq!(formula_simpl_unif.cut_clauses.len(), 1);
+
+    let clause = formula_simpl_unif.cut_clauses.into_iter().next().unwrap();
+    let clause = ClauseIrred {
+        irreducibles: clause.irreducibles,
+    };
+    println!("irred: {}", clause.display_beautiful());
+
+    return;
 
     for (i, nnf) in FineFormIter::new(1).enumerate() {
-        if i > 200 {
-            println!("start {}", i);
-        }
+        //if i > 200 {
+        println!("start {}", i);
+        //}
         check_unifiability_simpl(nnf);
         if i > 200 {
             println!("end {}", i);
@@ -277,8 +294,13 @@ fn main() {
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {
             (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
-            (Err(e), _) => panic!("{}", e.display_beautiful()),
-            (_, Err(e)) => panic!("{}\n{}", nnf.display_beautiful(), e.display_beautiful()),
+            (Err(e), Ok(b1)) => panic!("{} should be {}", e.display_beautiful(), b1),
+            (_, Err(e)) => panic!(
+                "{}\nparser: {}\n{}",
+                nnf.display_beautiful(),
+                nnf.display_parser(),
+                e.display_beautiful()
+            ),
         }
     }
 
