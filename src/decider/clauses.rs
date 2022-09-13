@@ -1167,7 +1167,7 @@ fn arb_clause_atom() -> impl Strategy<Value = ClauseAtoms> {
 
 #[allow(dead_code)]
 fn arb_clause_irred() -> impl Strategy<Value = ClauseIrred> {
-    prop::collection::btree_set(arb_psi(), 0..10)
+    prop::collection::btree_set(arb_psi(), 0..3)
         .prop_map(|irreducibles| ClauseIrred { irreducibles })
 }
 
