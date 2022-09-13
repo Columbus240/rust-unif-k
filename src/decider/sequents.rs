@@ -354,6 +354,68 @@ impl PSI {
             PSIDisplaySpartacus { psi: self }
         }
     */
+
+    /// If the two sequents have this form:
+    ///    Γ ⇒ Δ1; Γ ⇒ Δ2 with Δ1 subset Δ2
+    /// or the form
+    ///    Γ1 ⇒ Δ; Γ2 ⇒ Δ with Γ1 subset Γ2
+    /// then return `Some(Left)`.
+    /// If the inclusions are the other way around, return `Some(Right)`.
+    /// Otherwise return `None`.
+    pub fn check_subset(seq0: &PSI, seq1: &PSI) -> Option<LeftRight> {
+        let left_atoms0: BTreeSet<_> = seq0
+            .atoms
+            .iter()
+            .filter_map(|(atom, dir)| match dir {
+                LeftRight::Left => Some(atom),
+                LeftRight::Right => None,
+            })
+            .collect();
+        let left_atoms1: BTreeSet<_> = seq1
+            .atoms
+            .iter()
+            .filter_map(|(atom, dir)| match dir {
+                LeftRight::Left => Some(atom),
+                LeftRight::Right => None,
+            })
+            .collect();
+        let right_atoms0: BTreeSet<_> = seq0
+            .atoms
+            .iter()
+            .filter_map(|(atom, dir)| match dir {
+                LeftRight::Left => None,
+                LeftRight::Right => Some(atom),
+            })
+            .collect();
+        let right_atoms1: BTreeSet<_> = seq1
+            .atoms
+            .iter()
+            .filter_map(|(atom, dir)| match dir {
+                LeftRight::Left => None,
+                LeftRight::Right => Some(atom),
+            })
+            .collect();
+
+        // first check the left hand side.
+
+        if seq0.lb == seq1.lb && left_atoms0 == left_atoms1 {
+            // The left sides are equal. In which direction are
+            // the right sides included?
+            if seq0.rb.is_subset(&seq1.rb) && right_atoms0.is_subset(&right_atoms1) {
+                return Some(LeftRight::Left);
+            } else if seq1.rb.is_subset(&seq0.rb) && right_atoms1.is_subset(&right_atoms0) {
+                return Some(LeftRight::Right);
+            }
+        } else if seq0.rb == seq1.rb && right_atoms0 == right_atoms1 {
+            // The right sides are equal. In which direction are the left sides included?
+            if seq0.lb.is_subset(&seq1.lb) && left_atoms0.is_subset(&left_atoms1) {
+                return Some(LeftRight::Left);
+            } else if seq1.lb.is_subset(&seq0.lb) && left_atoms1.is_subset(&left_atoms0) {
+                return Some(LeftRight::Right);
+            }
+        }
+        None
+    }
 }
 
 impl From<PS> for PSW {

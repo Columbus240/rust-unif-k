@@ -806,10 +806,33 @@ impl ClauseIrred {
                 Some(false) => {
                     return ClauseIrred::new_contradictory();
                 }
-                None => {
-                    new_sequents.insert(sequent);
-                }
+                None => {}
             };
+
+            // Check for redundant sequents.
+            // If two sequents have the same premise/conclusion but their
+            // conclusions/premises are subsets of eachother, we can
+            // remove the sequent with the smaller set of
+            // conclusions/premises.
+
+            let mut remove_current_sequent: bool = false;
+
+            new_sequents.drain_filter(|other_sequent| {
+                // return true, if `other_sequent` is the larger sequent to remove it.
+                // return false otherwise to keep that `other_sequent` in the set.
+                match PSI::check_subset(other_sequent, &sequent) {
+                    Some(LeftRight::Left) => {
+                        remove_current_sequent = true;
+                        false
+                    }
+                    Some(LeftRight::Right) => true,
+                    None => false,
+                }
+            });
+
+            if !remove_current_sequent {
+                new_sequents.insert(sequent);
+            }
         }
 
         self.irreducibles = new_sequents;
@@ -1174,7 +1197,8 @@ fn arb_clause_irred() -> impl Strategy<Value = ClauseIrred> {
 proptest! {
  #[test]
  fn simplify_equiv(clause in arb_clause_irred()) {
-     assert!(NNF::equiv_dec(&clause.clone().to_nnf(), &clause.simplify().to_nnf()));
+     let clause_simplify = clause.clone().simplify();
+     assert!(NNF::equiv_dec(&clause.to_nnf(), &clause_simplify.to_nnf()));
  }
 }
 

@@ -1,4 +1,5 @@
 #![feature(once_cell)]
+#![feature(btree_drain_filter)]
 
 #[allow(unused_imports)]
 use std::collections::btree_map::BTreeMap;
