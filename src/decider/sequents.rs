@@ -272,6 +272,20 @@ impl PSI {
                 }
             }
         }
+
+        // Use the usual simplification algorithm to work on the left boxes.
+        // (If there are any)
+        if self.lb.len() > 1 {
+            let mut lb: Vec<_> = Vec::with_capacity(self.lb.len());
+            lb.extend(std::mem::take(&mut self.lb).into_iter());
+            match NNF::And(lb).simpl() {
+                NNF::Top => {}
+                NNF::And(conjuncts) => self.lb.extend(conjuncts.into_iter()),
+                phi => {
+                    self.lb.insert(phi);
+                }
+            }
+        }
     }
 
     /// Returns `Some(true)` if the sequent is valid.
