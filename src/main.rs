@@ -254,6 +254,7 @@ fn main() {
         .build_global()
         .unwrap();
 
+    /*
     let formula = nnf_parser::LiteralParser::new()
         .parse("((0&[](0&~0))|(~0&<>~0&[]~0)|(~0&<>0&[]0)|(~0&<>~0&<>0))")
         .unwrap();
@@ -277,14 +278,35 @@ fn main() {
     println!("irred: {}", clause.display_beautiful());
 
     return;
+    */
 
+    let mut decidable: usize = 0;
+    let mut undecidable: usize = 0;
     for (i, nnf) in FineFormIter::new(1).enumerate() {
         //if i > 200 {
         println!("start {}", i);
         //}
-        check_unifiability_simpl(nnf);
+        let nnf_simpl = nnf.clone().simpl_slow();
+        let nnf_unif = nnf.clone().check_unifiable();
+        let nnf_simpl_unif = nnf_simpl.check_unifiable();
+        match (nnf_unif, nnf_simpl_unif) {
+            (Ok(b0), Ok(b1)) => {
+                decidable += 1;
+                assert_eq!(b0, b1);
+            }
+            (Err(e), Ok(b1)) => panic!("{} should be {}", e.display_beautiful(), b1),
+            (_, Err(e)) => {
+                undecidable += 1;
+                println!(
+                    "{}\nparser: {}\n{}",
+                    nnf.display_beautiful(),
+                    nnf.display_parser(),
+                    e.display_beautiful()
+                )
+            }
+        }
         if i > 200 {
-            println!("end {}", i);
+            println!("end {} undec {} dec {}", i, undecidable, decidable);
         }
     }
 
@@ -296,7 +318,7 @@ fn main() {
         match (nnf_unif, nnf_simpl_unif) {
             (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
             (Err(e), Ok(b1)) => panic!("{} should be {}", e.display_beautiful(), b1),
-            (_, Err(e)) => panic!(
+            (_, Err(e)) => println!(
                 "{}\nparser: {}\n{}",
                 nnf.display_beautiful(),
                 nnf.display_parser(),
