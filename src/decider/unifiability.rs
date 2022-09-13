@@ -1,4 +1,3 @@
-//TODO: Make the algorithm terminate again and incorporate `ClauseCut` appropriately.
 use super::*;
 use crate::nnf::NNF;
 use std::collections::BTreeSet;
@@ -14,26 +13,104 @@ fn clause_waiting_unif_step(mut clause: ClauseWaiting) -> ClauseWaiting {
     clause
 }
 
+// Invariant: The cut-rule is only ever applied to `ClauseIrred`.
+
+#[derive(Debug)]
+struct UnifCheckState {
+    clause_set: ClauseSet,
+    /// The set of clauses on which the cut rule was applied
+    cut_applied: BTreeSet<ClauseIrred>,
+    /// The set of clauses which were encountered
+    visited_clauses: BTreeSet<ClauseWaiting>,
+}
+
+impl UnifCheckState {
+    fn new(clause: ClauseWaiting) -> UnifCheckState {
+        let mut state = UnifCheckState {
+            clause_set: ClauseSet::new(),
+            cut_applied: BTreeSet::new(),
+            visited_clauses: BTreeSet::new(),
+        };
+        state.insert_clause_waiting(clause);
+        state
+    }
+
+    /// For methods that insert clauses:
+    /// If the cut-rule has already been applied to the clause, then store it separately.
+    /// If the clause has been visited already, then forget it.
+    /// Otherwise add it into the respective subset.
+
+    fn insert_clause_irred(&mut self, clause_irred: ClauseIrred) {
+        let clause_irred = match clause_irred.unifiability_simplify() {
+            Ok(clause_irred) => clause_irred,
+            Err(clause_atoms) => {
+                self.insert_clause_atoms(clause_atoms);
+                return;
+            }
+        };
+        // If cut has been applied to this rule already, then store it separately
+        if self.cut_applied.contains(&clause_irred) {
+            self.clause_set.cut_clauses.insert(ClauseCut {
+                irreducibles: clause_irred.irreducibles,
+            });
+        } else {
+            // if the cut-rule has not been applied to it, check whether we visited it already
+            if self.visited_clauses.insert(clause_irred.clone().into()) {
+                self.clause_set.irreducibles.insert(clause_irred);
+            }
+        }
+    }
+
+    fn insert_clause_atoms(&mut self, clause: ClauseAtoms) {
+        match TryInto::<ClauseIrred>::try_into(clause) {
+            Ok(clause_irred) => {
+                self.insert_clause_irred(clause_irred);
+            }
+            Err(clause_atom) => {
+                if self.visited_clauses.insert(clause_atom.clone().into()) {
+                    self.clause_set.waiting_atoms.push(clause_atom);
+                }
+            }
+        }
+    }
+
+    fn insert_clause_waiting(&mut self, clause: ClauseWaiting) {
+        match TryInto::<ClauseAtoms>::try_into(clause) {
+            Ok(clause_atoms) => {
+                self.insert_clause_atoms(clause_atoms);
+            }
+            Err(clause_waiting) => {
+                if self.visited_clauses.insert(clause_waiting.clone()) {
+                    self.clause_set.waiting_conj_disj.push(clause_waiting);
+                }
+            }
+        }
+    }
+
+    fn insert_clause_waiting_vec(&mut self, clause_vec: Vec<ClauseWaiting>) {
+        self.clause_set.waiting_conj_disj.reserve(clause_vec.len());
+        for clause in clause_vec {
+            self.insert_clause_waiting(clause);
+        }
+    }
+}
+
 /// Returns `true` if the clause is unifiable, returns `false` if it is undecided or not unifiable.
 /// All further clauses that are created by this function are stored both in `visited_clauses` and `clause_set`.
 fn check_unifiable_process_conjs(
-    clause: ClauseWaiting,
-    visited_clauses: Arc<Mutex<BTreeSet<ClauseAtoms>>>,
-    clause_set: Arc<Mutex<ClauseSet>>,
+    mut clause: ClauseWaiting,
+    state: Arc<Mutex<UnifCheckState>>,
 ) -> bool {
-    let mut clause = clause;
     loop {
         match TryInto::<ClauseIrred>::try_into(clause) {
-            Ok(clause_irred) => match clause_irred.simple_check_unifiability() {
-                Some(b) => {
+            Ok(clause_irred) => {
+                if let Some(b) = clause_irred.simple_check_unifiability() {
                     return b;
                 }
-                None => {
-                    let clause_irred = clause_irred.simplify();
-                    clause_set.lock().unwrap().irreducibles.insert(clause_irred);
-                    return false;
-                }
-            },
+                let clause_irred = clause_irred.simplify();
+                state.lock().unwrap().insert_clause_irred(clause_irred);
+                return false;
+            }
             Err(clause_waiting) => {
                 if let Some(b) = clause_waiting.simple_check_unifiability() {
                     return b;
@@ -43,9 +120,8 @@ fn check_unifiable_process_conjs(
                         clause = clause_waiting_unif_step(clause_waiting);
                     }
                     Ok(clause_atoms) => {
-                        if visited_clauses.lock().unwrap().insert(clause_atoms.clone()) {
-                            clause_set.lock().unwrap().waiting_atoms.push(clause_atoms);
-                        }
+                        let mut state = state.lock().unwrap();
+                        state.insert_clause_atoms(clause_atoms);
                         return false;
                     }
                 }
@@ -54,151 +130,177 @@ fn check_unifiable_process_conjs(
     }
 }
 
+fn check_unifiable_process_cut(clause: ClauseIrred, state: Arc<Mutex<UnifCheckState>>) -> bool {
+    {
+        let mut state = state.lock().unwrap();
+        // Check whether we already did a cut on this clause.
+        if !state.cut_applied.contains(&clause) {
+            // If yes, then skip the cut.
+            state.clause_set.cut_clauses.insert(ClauseCut {
+                irreducibles: clause.irreducibles,
+            });
+            return false;
+        }
+    }
+    let mut state = state.lock().unwrap();
+    let clause = match clause.unifiability_simplify() {
+        Ok(clause) => clause,
+        Err(clause_atoms) => {
+            state.insert_clause_atoms(clause_atoms);
+            return false;
+        }
+    };
+    match clause.clone().unifiability_simplify_perform_cut_rule() {
+        Ok(clause_cut) => {
+            state.cut_applied.insert(clause);
+            state.clause_set.cut_clauses.insert(clause_cut);
+        }
+        Err(clause_atoms) => {
+            state.cut_applied.insert(clause);
+            state.insert_clause_atoms(clause_atoms);
+        }
+    }
+    false
+}
+
 fn check_unifiable_process_atoms(
     clause: ClauseAtoms,
-    visited_clauses: Arc<Mutex<BTreeSet<ClauseWaiting>>>,
-    clause_set: Arc<Mutex<ClauseSet>>,
+    state: Arc<Mutex<UnifCheckState>>,
+    //visited_clauses: Arc<Mutex<BTreeSet<ClauseWaiting>>>,
+    //clause_set: Arc<Mutex<ClauseSet>>,
 ) -> bool {
-    match TryInto::<ClauseIrred>::try_into(clause) {
-        Ok(clause_irred) => match clause_irred.simple_check_unifiability() {
-            Some(b) => b,
-            None => {
-                let clause_irred = clause_irred.simplify();
-                clause_set.lock().unwrap().irreducibles.insert(clause_irred);
-                false
-            }
-        },
-        Err(clause_atoms) => {
-            if let Some(b) = clause_atoms.simple_check_unifiability() {
-                return b;
-            }
-            let p = clause_atoms.process_atoms_step();
-            match p {
-                ProcessAtomsResult::Valid => true,
-                ProcessAtomsResult::Contradictory => false,
-                ProcessAtomsResult::Irred(clause_irred) => {
-                    let mut clause_set = clause_set.lock().unwrap();
-                    clause_set.irreducibles.insert(clause_irred);
-                    false
+    if let Some(b) = clause.simple_check_unifiability() {
+        return b;
+    }
+    match clause.process_atoms_step() {
+        ProcessAtomsResult::Valid => true,
+        ProcessAtomsResult::Contradictory => false,
+        ProcessAtomsResult::Irred(clause_irred) => {
+            match clause_irred.unifiability_simplify() {
+                Ok(clause_irred) => {
+                    state.lock().unwrap().insert_clause_irred(clause_irred);
                 }
-                ProcessAtomsResult::Clause(clause_next) => {
-                    let mut clause_set = clause_set.lock().unwrap();
-                    let mut visited_clauses = visited_clauses.lock().unwrap();
-                    if visited_clauses.insert(clause_next.clone().into()) {
-                        clause_set.waiting_atoms.push(clause_next);
-                    }
-                    false
-                }
-                ProcessAtomsResult::Waiting(waiting_clauses) => {
-                    let mut clause_set = clause_set.lock().unwrap();
-                    let mut visited_clauses = visited_clauses.lock().unwrap();
-                    clause_set.waiting_conj_disj.reserve(waiting_clauses.len());
-                    for clause in waiting_clauses.into_iter() {
-                        if visited_clauses.insert(clause.clone()) {
-                            clause_set.waiting_conj_disj.push(clause);
-                        }
-                    }
-                    false
+                Err(clause_atoms) => {
+                    state.lock().unwrap().insert_clause_atoms(clause_atoms);
                 }
             }
+            false
+        }
+        ProcessAtomsResult::Clause(clause_next) => {
+            state.lock().unwrap().insert_clause_atoms(clause_next);
+            false
+        }
+        ProcessAtomsResult::Waiting(waiting_clauses) => {
+            let mut state = state.lock().unwrap();
+            state.insert_clause_waiting_vec(waiting_clauses);
+            false
         }
     }
 }
 
-impl ClauseSet {
-    pub fn check_unifiable(self) -> Result<bool, ClauseSet> {
-        let mut visited_clauses: BTreeSet<ClauseWaiting> = BTreeSet::new();
-        let mut visited_atoms: BTreeSet<ClauseAtoms> = BTreeSet::new();
-        // Add the current clauses to the set of visited clauses
-
-        for clause in self.irreducibles.iter() {
-            visited_clauses.insert(clause.clone().into());
-        }
-        for clause in self.waiting_atoms.iter() {
-            visited_atoms.insert(clause.clone());
-        }
-        for clause in self.waiting_conj_disj.iter() {
-            visited_clauses.insert(clause.clone());
-        }
-        let visited_clauses: Arc<Mutex<_>> = Arc::new(Mutex::new(visited_clauses));
-        let visited_atoms: Arc<Mutex<_>> = Arc::new(Mutex::new(visited_atoms));
-
-        let clause_set = Arc::new(Mutex::new(self));
+impl UnifCheckState {
+    fn process(state: UnifCheckState) -> Result<bool, ClauseSet> {
+        let state: Arc<Mutex<UnifCheckState>> = Arc::new(Mutex::new(state));
 
         {
-            let clause_set = clause_set.lock().unwrap();
-            eprintln!("start_of_loop {}", clause_set.display_beautiful());
+            let state = state.lock().unwrap();
+            //eprintln!("start_of_loop {}", state.clause_set.display_beautiful());
         }
 
         loop {
             {
                 let is_irred = {
-                    let mut clause_set = clause_set.lock().unwrap();
-                    clause_set.unifiability_simplify();
-                    clause_set.is_irred()
+                    let mut state = state.lock().unwrap();
+                    state.clause_set.unifiability_simplify();
+                    state.clause_set.is_irred()
                 };
                 if is_irred {
                     // Otherwise return
-                    let clause_set: ClauseSet =
-                        Arc::try_unwrap(clause_set).unwrap().into_inner().unwrap();
-                    if let Some(b) = clause_set.is_unifiable() {
+                    let state: UnifCheckState =
+                        Arc::try_unwrap(state).unwrap().into_inner().unwrap();
+                    if let Some(b) = state.clause_set.is_unifiable() {
                         return Ok(b);
                     }
-                    return Err(clause_set);
+                    eprintln!("cut clauses:");
+                    for cc in state.cut_applied {
+                        eprintln!("  {}", cc.display_beautiful());
+                    }
+                    return Err(state.clause_set);
                 }
             }
             {
-                let clause_set = clause_set.lock().unwrap();
-                eprintln!(
-                    "simplified overall unifiability {}",
-                    clause_set.display_beautiful()
-                );
+                let state = state.lock().unwrap();
+                /*
+                        eprintln!(
+                            "simplified overall unifiability {}",
+                            state.clause_set.display_beautiful()
+                        );
+                */
             }
             {
-                let clause_set_mutex = clause_set.clone();
+                let state_mutex = state.clone();
                 let waiting_conj_disj;
                 {
-                    let mut clause_set = clause_set.lock().unwrap();
-                    waiting_conj_disj = std::mem::take(&mut clause_set.waiting_conj_disj);
+                    let mut state = state.lock().unwrap();
+                    waiting_conj_disj = std::mem::take(&mut state.clause_set.waiting_conj_disj);
                 }
 
-                if waiting_conj_disj.into_par_iter().any(|clause| {
-                    check_unifiable_process_conjs(
-                        clause,
-                        visited_atoms.clone(),
-                        clause_set_mutex.clone(),
-                    )
-                }) {
+                if waiting_conj_disj
+                    .into_par_iter()
+                    .any(|clause| check_unifiable_process_conjs(clause, state_mutex.clone()))
+                {
                     return Ok(true);
                 }
             }
             {
-                let clause_set = clause_set.lock().unwrap();
-                eprintln!("processed waiting {}", clause_set.display_beautiful());
+                let state = state.lock().unwrap();
+                //eprintln!("processed waiting {}", state.clause_set.display_beautiful());
             }
             {
-                let clause_set_mutex = clause_set.clone();
+                let state_mutex = state.clone();
                 let waiting_atoms;
                 {
-                    let mut clause_set = clause_set.lock().unwrap();
-                    waiting_atoms = std::mem::take(&mut clause_set.waiting_atoms);
+                    let mut state = state.lock().unwrap();
+                    waiting_atoms = std::mem::take(&mut state.clause_set.waiting_atoms);
                 }
 
-                if waiting_atoms.into_par_iter().any(|clause| {
-                    check_unifiable_process_atoms(
-                        clause,
-                        visited_clauses.clone(),
-                        clause_set_mutex.clone(),
-                    )
-                }) {
+                if waiting_atoms
+                    .into_par_iter()
+                    .any(|clause| check_unifiable_process_atoms(clause, state_mutex.clone()))
+                {
                     return Ok(true);
                 }
             }
             {
-                let clause_set = clause_set.lock().unwrap();
-                eprintln!("processed atoms {}", clause_set.display_beautiful());
+                let state = state.lock().unwrap();
+                //eprintln!("processed atoms {}", state.clause_set.display_beautiful());
+            }
+            {
+                let state_mutex = state.clone();
+                let waiting_precut;
+                {
+                    let mut state = state.lock().unwrap();
+                    waiting_precut = std::mem::take(&mut state.clause_set.irreducibles);
+                }
+
+                if waiting_precut
+                    .into_par_iter()
+                    .any(|clause| check_unifiable_process_cut(clause, state_mutex.clone()))
+                {
+                    return Ok(true);
+                }
+            }
+            {
+                let state = state.lock().unwrap();
+                //eprintln!("processed cuts {}", state.clause_set.display_beautiful());
             }
         }
+    }
+}
+
+impl ClauseWaiting {
+    fn check_unifiable(self) -> Result<bool, ClauseSet> {
+        UnifCheckState::process(UnifCheckState::new(self))
     }
 }
 
@@ -219,8 +321,7 @@ impl NNF {
 
         // Add the sequent to a clause
         let clause_waiting = ClauseWaiting::from_sequent(ps);
-        let clause_set: ClauseSet = ClauseSet::from_clause(clause_waiting);
-        clause_set.check_unifiable()
+        clause_waiting.check_unifiable()
     }
 }
 
@@ -237,7 +338,7 @@ proptest! {
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {
             (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
-            (Err(e), _) => panic!("{}", e.display_beautiful()),
+            (Err(e), _) => {}, //panic!("{}", e.display_beautiful()),
             (_, Err(_)) => {},
         }
     }

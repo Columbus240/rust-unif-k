@@ -614,8 +614,8 @@ impl ClauseAtoms {
         }
 
         // Edge case:
-        // If the clause contains only atom-sequents. Then we can't tell.
-        if self.irreducibles.is_empty() {
+        // If the clause contains any atom-sequents. Then we can't tell.
+        if !self.atom_sequents.is_empty() {
             return None;
         }
 
@@ -742,6 +742,12 @@ impl From<ClauseCut> for ClauseIrred {
         ClauseIrred {
             irreducibles: value.irreducibles,
         }
+    }
+}
+
+impl From<ClauseCut> for ClauseWaiting {
+    fn from(value: ClauseCut) -> Self {
+        Into::<ClauseIrred>::into(value).into()
     }
 }
 
@@ -967,10 +973,11 @@ impl ClauseIrred {
         });
     }
 
-    pub fn unifiability_simplify(self) -> Result<ClauseCut, ClauseAtoms> {
+    /// Does not perform the cut-rule, because that one may cause loops.
+    pub fn unifiability_simplify(self) -> Result<ClauseIrred, ClauseAtoms> {
         let mut clause_irred = self.simplify().unifiability_simplify_empty()?;
         clause_irred.unifiability_simplify_free_atoms();
-        clause_irred.unifiability_simplify_perform_cut_rule()
+        Ok(clause_irred)
     }
 
     /// Returns `Some(false)` if the clause contains an empty
@@ -1028,7 +1035,8 @@ impl ClauseIrred {
         ClauseIrredDisplaySpartacus { clause: self }
     }
 
-    fn unifiability_simplify_perform_cut_rule(mut self) -> Result<ClauseCut, ClauseAtoms> {
+    /// Take care with this rule, because it may cause loops.
+    pub fn unifiability_simplify_perform_cut_rule(mut self) -> Result<ClauseCut, ClauseAtoms> {
         // For all sequents `sequent`, for all variables `p` on the left of this sequent,
         // Search for other sequents with `p` on the right. Then perform
         // cut on these two sequents and this variable. Add the resulting sequent to a waiting list.
@@ -1164,6 +1172,18 @@ fn arb_clause_waiting_conj() -> impl Strategy<Value = ClauseWaiting> {
                 conj_disj_sequents,
             },
         )
+}
+
+#[allow(dead_code)]
+fn arb_clause_atom() -> impl Strategy<Value = ClauseAtoms> {
+    (
+        prop::collection::btree_set(arb_psi(), 0..10),
+        prop::collection::vec(arb_psb(), 0..10),
+    )
+        .prop_map(|(irreducibles, atom_sequents)| ClauseAtoms {
+            irreducibles,
+            atom_sequents,
+        })
 }
 
 #[allow(dead_code)]
@@ -1325,6 +1345,17 @@ impl ClauseSet {
             && self.waiting_conj_disj.is_empty()
     }
 
+    /// Creates an empty (and thus unsatisfiable) `ClauseSet`.
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> ClauseSet {
+        ClauseSet {
+            cut_clauses: BTreeSet::new(),
+            irreducibles: BTreeSet::new(),
+            waiting_atoms: Vec::new(),
+            waiting_conj_disj: Vec::new(),
+        }
+    }
+
     pub fn from_clause_vec(clauses: Vec<ClauseWaiting>) -> ClauseSet {
         ClauseSet {
             cut_clauses: BTreeSet::new(),
@@ -1344,8 +1375,8 @@ impl ClauseSet {
 
         for clause_irred in std::mem::take(&mut self.irreducibles).into_iter() {
             match clause_irred.unifiability_simplify() {
-                Ok(clause_cut) => {
-                    self.cut_clauses.insert(clause_cut);
+                Ok(clause_irred) => {
+                    self.irreducibles.insert(clause_irred);
                 }
                 Err(clause_atoms) => {
                     self.waiting_atoms.push(clause_atoms);
@@ -1377,7 +1408,8 @@ impl ClauseSet {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.irreducibles.is_empty()
+        self.cut_clauses.is_empty()
+            && self.irreducibles.is_empty()
             && self.waiting_atoms.is_empty()
             && self.waiting_conj_disj.is_empty()
     }
@@ -1390,6 +1422,16 @@ impl ClauseSet {
         }
 
         let mut maybe_unifiable = false;
+
+        for clause in self.cut_clauses.iter() {
+            match Into::<ClauseIrred>::into(clause.clone()).simple_check_unifiability() {
+                None => {
+                    maybe_unifiable = true;
+                }
+                Some(true) => return Some(true),
+                Some(false) => {}
+            }
+        }
 
         for clause in self.irreducibles.iter() {
             match clause.simple_check_unifiability() {
@@ -1464,6 +1506,13 @@ proptest! {
     (Some(a), Some(b)) => assert_eq!(a, b),
     (None, _) => {},
     (Some(_), _) => panic!(),
+    }
+    }
+
+    #[test]
+    fn atom_simple_check_validity(clause in arb_clause_atom()) {
+    if let Some(b) = clause.simple_check_validity() {
+        assert_eq!(clause.to_nnf().is_valid(), b);
     }
     }
 
