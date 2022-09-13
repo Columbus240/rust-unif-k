@@ -553,7 +553,7 @@ impl PSW {
 }
 
 pub enum PSConjsResult {
-    NewPS(Vec<PS>),
+    NewPS(BTreeSet<PS>),
     Irred(PSI),
     Boxes(PSB),
 }
@@ -806,25 +806,25 @@ impl PS {
     pub fn process_conjs_step(mut self) -> PSConjsResult {
         self.process_easy_conjs();
         if let Some(conjuncts) = self.rc.pop() {
-            let mut new_ps_vec: Vec<PS> = Vec::with_capacity(conjuncts.len());
+            let mut new_ps_set: BTreeSet<PS> = BTreeSet::new();
             for conj in conjuncts.into_iter() {
                 let mut new_psw: PSW = self.clone().into();
                 new_psw.rw.push(conj);
                 if let Some(new_ps) = new_psw.into_ps() {
-                    new_ps_vec.push(new_ps);
+                    new_ps_set.insert(new_ps);
                 }
             }
-            PSConjsResult::NewPS(new_ps_vec)
+            PSConjsResult::NewPS(new_ps_set)
         } else if let Some(disjuncts) = self.ld.pop() {
-            let mut new_ps_vec: Vec<PS> = Vec::with_capacity(disjuncts.len());
+            let mut new_ps_set: BTreeSet<PS> = BTreeSet::new();
             for disjunct in disjuncts.into_iter() {
                 let mut new_psw: PSW = self.clone().into();
                 new_psw.lw.push(disjunct);
                 if let Some(ps) = new_psw.into_ps() {
-                    new_ps_vec.push(ps);
+                    new_ps_set.insert(ps);
                 }
             }
-            PSConjsResult::NewPS(new_ps_vec)
+            PSConjsResult::NewPS(new_ps_set)
         } else {
             // this `ps` is irreducible. Does it contain atoms?
             if self.atoms.is_empty() {

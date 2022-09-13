@@ -15,7 +15,7 @@ pub struct ClauseWaiting {
     pub atom_sequents: BTreeSet<PSB>,
 
     // Sequents that contain both right-conjunctions and left-disjunctions
-    pub conj_disj_sequents: Vec<PS>,
+    pub conj_disj_sequents: BTreeSet<PS>,
 }
 
 impl ClauseWaiting {
@@ -27,16 +27,18 @@ impl ClauseWaiting {
         ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: BTreeSet::new(),
-            conj_disj_sequents: Vec::new(),
+            conj_disj_sequents: BTreeSet::new(),
         }
     }
 
     pub fn from_sequent(ps: PS) -> ClauseWaiting {
-        ClauseWaiting {
+        let mut cw = ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: BTreeSet::new(),
-            conj_disj_sequents: vec![ps],
-        }
+            conj_disj_sequents: BTreeSet::new(),
+        };
+        cw.conj_disj_sequents.insert(ps);
+        cw
     }
 
     pub fn from_psw_vec(psw: Vec<PSW>) -> ClauseWaiting {
@@ -149,7 +151,7 @@ impl ClauseWaiting {
         ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: set,
-            conj_disj_sequents: Vec::new(),
+            conj_disj_sequents: BTreeSet::new(),
         }
     }
 
@@ -168,7 +170,7 @@ impl ClauseWaiting {
             // Sort the sequents into the right category.
             let mut irreducibles: BTreeSet<PSI> = BTreeSet::new();
             let mut atom_sequents = BTreeSet::new();
-            let mut conj_disj_sequents: Vec<PS> = Vec::new();
+            let mut conj_disj_sequents: BTreeSet<PS> = BTreeSet::new();
 
             if sequent.rc.is_empty() && sequent.ld.is_empty() {
                 if sequent.atoms.is_empty() {
@@ -177,7 +179,7 @@ impl ClauseWaiting {
                     irreducibles.insert(sequent.try_into().unwrap());
                 }
             } else {
-                conj_disj_sequents.push(sequent);
+                conj_disj_sequents.insert(sequent);
             }
 
             ClauseWaiting {
@@ -191,8 +193,10 @@ impl ClauseWaiting {
     }
 
     pub fn process_easy_conjs(&mut self) {
-        for sequent in self.conj_disj_sequents.iter_mut() {
+        let cd_sequents = std::mem::take(&mut self.conj_disj_sequents);
+        for mut sequent in cd_sequents.into_iter() {
             sequent.process_easy_conjs();
+            self.conj_disj_sequents.insert(sequent);
         }
     }
 
@@ -211,7 +215,9 @@ impl ClauseWaiting {
                 PsbEasyResult::Psi(psi) => {
                     self.irreducibles.insert(psi);
                 }
-                PsbEasyResult::Ps(ps) => self.conj_disj_sequents.push(ps),
+                PsbEasyResult::Ps(ps) => {
+                    self.conj_disj_sequents.insert(ps);
+                }
                 PsbEasyResult::Valid => {}
             }
         }
@@ -221,7 +227,7 @@ impl ClauseWaiting {
 
     pub fn process_conjs_step(&mut self) {
         // Move `self.conj_disj_sequents` into `old_ps_vec` and replace it with a new vector.
-        let old_ps_vec: Vec<PS> = std::mem::take(&mut self.conj_disj_sequents);
+        let old_ps_vec: BTreeSet<PS> = std::mem::take(&mut self.conj_disj_sequents);
 
         // Then process those sequents and insert the resulting sequents in `self` again.
         for ps in old_ps_vec.into_iter() {
@@ -322,14 +328,16 @@ impl ClauseWaiting {
             sequent.substitute(substitution);
             self.atom_sequents.insert(sequent);
         }
-        for sequent in self.conj_disj_sequents.iter_mut() {
+        let conj_disj_sequents = std::mem::take(&mut self.conj_disj_sequents);
+        for mut sequent in conj_disj_sequents.into_iter() {
             sequent.substitute(substitution);
+            self.conj_disj_sequents.insert(sequent);
         }
 
         for sequent in irreducibles {
             match TryInto::<PSI>::try_into(sequent) {
                 Err(ps) => {
-                    self.conj_disj_sequents.push(ps);
+                    self.conj_disj_sequents.insert(ps);
                 }
                 Ok(psi) => {
                     match TryInto::<PSB>::try_into(psi) {
@@ -443,7 +451,7 @@ impl From<ClauseAtoms> for ClauseWaiting {
         ClauseWaiting {
             irreducibles: value.irreducibles.into_iter().collect(),
             atom_sequents: value.atom_sequents.into_iter().collect(),
-            conj_disj_sequents: Vec::new(),
+            conj_disj_sequents: BTreeSet::new(),
         }
     }
 }
@@ -591,9 +599,12 @@ impl ClauseAtoms {
             if let Some(new_ps) = new_psw.into_ps() {
                 // Add the sequent to the current clause.
                 let mut new_clause: ClauseWaiting = clause.clone().into();
-                new_clause.conj_disj_sequents.push(new_ps);
+                new_clause.conj_disj_sequents.insert(new_ps);
                 delta_waiting_conj.push(new_clause);
             } else {
+                // If the new sequent is "trivially" valid, then the
+                // atom-sequent we started with is also valid, so we
+                // can forget about it and simply return the `clause`.
                 return ProcessAtomsResult::Clause(clause);
             }
         }
@@ -1055,7 +1066,7 @@ fn arb_clause_waiting_conj() -> impl Strategy<Value = ClauseWaiting> {
     (
         prop::collection::btree_set(arb_psi(), 0..10),
         prop::collection::btree_set(arb_psb(), 0..10),
-        prop::collection::vec(arb_ps(), 0..10),
+        prop::collection::btree_set(arb_ps(), 0..10),
     )
         .prop_map(
             |(irreducibles, atom_sequents, conj_disj_sequents)| ClauseWaiting {
