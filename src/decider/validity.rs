@@ -73,26 +73,7 @@ impl NNF {
             _ => {}
         }
 
-        let result = PSW::from_nnf(self.clone()).compute_validity();
-        if result {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(true)
-                .open("valid_formulae")
-                .unwrap();
-            writeln!(file, "{}", self.display_spartacus()).unwrap();
-        } else {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(true)
-                .open("invalid_formulae")
-                .unwrap();
-            writeln!(file, "{}", self.display_spartacus()).unwrap();
-        }
-
-        result
+        PSW::from_nnf(self.clone()).compute_validity()
     }
 
     pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
