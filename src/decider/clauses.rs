@@ -1189,10 +1189,24 @@ impl<'a> std::fmt::Display for ClauseSetDisplayBeautiful<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{")?;
 
+        write!(f, " cut_clauses: ")?;
+        for clause in self.clause_set.cut_clauses.iter() {
+            write!(
+                f,
+                " ; {} ; ",
+                ClauseIrred {
+                    irreducibles: clause.irreducibles.clone()
+                }
+                .display_beautiful()
+            )?;
+        }
+
+        write!(f, " irreducibles: ")?;
         for clause in self.clause_set.irreducibles.iter() {
             write!(f, " ; {} ; ", clause.display_beautiful())?;
         }
 
+        write!(f, " waiting_atoms: ")?;
         for clause in self.clause_set.waiting_atoms.iter() {
             write!(
                 f,
@@ -1201,6 +1215,7 @@ impl<'a> std::fmt::Display for ClauseSetDisplayBeautiful<'a> {
             )?;
         }
 
+        write!(f, " waiting_cd: ")?;
         for clause in self.clause_set.waiting_conj_disj.iter() {
             write!(f, " ; {} ; ", clause.display_beautiful())?;
         }
