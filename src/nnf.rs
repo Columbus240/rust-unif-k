@@ -101,6 +101,10 @@ impl NNF {
             NNF::Top => NNF::Top,
             NNF::And(conjuncts) => {
                 let mut new_conjuncts = Vec::with_capacity(conjuncts.len());
+                let mut boxed_conjuncts = Vec::new();
+
+                // Given the formula `p /\ []q` then store `p` in
+                // `new_conjuncts` and `q` in `boxed_conjuncts`.
 
                 'outer: for phi in conjuncts
                     .into_iter()
@@ -137,18 +141,44 @@ impl NNF {
                             return NNF::Bot;
                         }
                     }
-                    new_conjuncts.push(phi);
+
+                    match phi {
+                        NNF::NnfBox(phi_inner) => {
+                            boxed_conjuncts.push(phi_inner);
+                        }
+                        _ => {
+                            new_conjuncts.push(phi);
+                        }
+                    }
                 }
-                if new_conjuncts.is_empty() {
-                    return NNF::Top;
+                match (new_conjuncts.len(), boxed_conjuncts.len()) {
+                    (0, 0) => NNF::Top,
+                    (1, 0) => new_conjuncts.into_iter().next().unwrap(),
+                    (0, 1) => NNF::NnfBox(boxed_conjuncts.into_iter().next().unwrap()),
+                    (nc_len, 0) if nc_len > 1 => NNF::And(new_conjuncts),
+                    (nc_len, 1) if nc_len >= 1 => {
+                        new_conjuncts
+                            .push(NNF::NnfBox(boxed_conjuncts.into_iter().next().unwrap()));
+                        NNF::And(new_conjuncts)
+                    }
+                    (_, _) => {
+                        let mut new_boxed_conjuncts: Vec<NNF> =
+                            Vec::with_capacity(boxed_conjuncts.len());
+                        for bc in boxed_conjuncts.into_iter() {
+                            new_boxed_conjuncts.push(*bc);
+                        }
+                        let boxed_conjuncts = NNF::And(new_boxed_conjuncts);
+                        new_conjuncts.push(NNF::NnfBox(Box::new(boxed_conjuncts)));
+                        NNF::And(new_conjuncts)
+                    }
                 }
-                if new_conjuncts.len() == 1 {
-                    return new_conjuncts.into_iter().next().unwrap();
-                }
-                NNF::And(new_conjuncts)
             }
             NNF::Or(disjuncts) => {
                 let mut new_disjuncts = Vec::with_capacity(disjuncts.len());
+                let mut diamond_disjuncts = Vec::new();
+
+                // Given the formula `p \/ <>q` store `p` in
+                // `new_disjuncts` and `q` in `diamond_disjuncts`.
 
                 'outer: for phi in disjuncts
                     .into_iter()
@@ -185,17 +215,38 @@ impl NNF {
                             return NNF::Top;
                         }
                     }
-                    new_disjuncts.push(phi);
+
+                    match phi {
+                        NNF::NnfDia(phi_inner) => {
+                            diamond_disjuncts.push(phi_inner);
+                        }
+                        _ => {
+                            new_disjuncts.push(phi);
+                        }
+                    }
                 }
 
-                if new_disjuncts.is_empty() {
-                    return NNF::Bot;
+                match (new_disjuncts.len(), diamond_disjuncts.len()) {
+                    (0, 0) => NNF::Bot,
+                    (1, 0) => new_disjuncts.into_iter().next().unwrap(),
+                    (0, 1) => NNF::NnfDia(diamond_disjuncts.into_iter().next().unwrap()),
+                    (nd_len, 0) if nd_len > 1 => NNF::Or(new_disjuncts),
+                    (nd_len, 1) if nd_len >= 1 => {
+                        new_disjuncts
+                            .push(NNF::NnfDia(diamond_disjuncts.into_iter().next().unwrap()));
+                        NNF::Or(new_disjuncts)
+                    }
+                    (_, _) => {
+                        let mut new_diamond_disjuncts: Vec<NNF> =
+                            Vec::with_capacity(diamond_disjuncts.len());
+                        for dd in diamond_disjuncts.into_iter() {
+                            new_diamond_disjuncts.push(*dd);
+                        }
+                        let diamond_disjuncts = NNF::Or(new_diamond_disjuncts);
+                        new_disjuncts.push(NNF::NnfDia(Box::new(diamond_disjuncts)));
+                        NNF::Or(new_disjuncts)
+                    }
                 }
-                if new_disjuncts.len() == 1 {
-                    return new_disjuncts.into_iter().next().unwrap();
-                }
-
-                NNF::Or(new_disjuncts)
             }
             NNF::NnfBox(phi) => {
                 let phi = phi.simpl_actual(slow);
@@ -420,5 +471,12 @@ proptest! {
     assert!(
         NNF::And(a.clone()).is_valid() == (a.iter().cloned().fold(true, |acc, phi| acc && phi.is_valid()))
     );
+    }
+
+    #[test]
+    fn parser_compatibility(a in arb_nnf()) {
+    use crate::nnf_parser::LiteralParser;
+    println!("{}", a.display_parser());
+    assert!(NNF::equiv_dec(&a, &LiteralParser::new().parse(&format!("{}", a.display_parser())).unwrap()));
     }
 }
