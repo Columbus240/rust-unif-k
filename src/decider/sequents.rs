@@ -983,7 +983,7 @@ proptest! {
     }
 
     #[test]
-    fn test_psi(psi in arb_psi()) {
+    fn test_psi_simplify(psi in arb_psi()) {
     let mut psi_simpl = psi.clone();
     psi_simpl.simplify();
     assert!(NNF::equiv_dec(&psi.to_nnf(), &psi_simpl.to_nnf()));
