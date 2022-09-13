@@ -221,10 +221,6 @@ impl UnifCheckState {
                     if let Some(b) = state.clause_set.is_unifiable() {
                         return Ok(b);
                     }
-                    eprintln!("cut clauses:");
-                    for cc in state.cut_applied {
-                        eprintln!("  {}", cc.display_beautiful());
-                    }
                     return Err(state.clause_set);
                 }
             }

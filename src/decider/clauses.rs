@@ -72,101 +72,6 @@ impl ClauseWaiting {
         None
     }
 
-    #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
-    fn unifiability_simplify_empty(&mut self) {
-        // if there is a sequent of the form `p ⇒ ø`, then replace `p` everywhere by `⊥`.
-        // if there is a sequent of the form `ø ⇒ p`, then replace `p` everywhere by `T`.
-
-        let mut require_top: BTreeSet<NnfAtom> = BTreeSet::new();
-        let mut require_bot: BTreeSet<NnfAtom> = BTreeSet::new();
-
-        for sequent in self.irreducibles.iter() {
-            if sequent.atoms.len() == 1 && sequent.rb.is_empty() && sequent.lb.is_empty() {
-                match sequent.atoms.iter().next().unwrap() {
-                    (i, LeftRight::Left) => require_bot.insert(*i),
-                    (i, LeftRight::Right) => require_top.insert(*i),
-                };
-            }
-        }
-
-        for sequent in self.conj_disj_sequents.iter() {
-            if sequent.atoms.len() == 1
-                && sequent.rb.is_empty()
-                && sequent.lb.is_empty()
-                && sequent.ld.is_empty()
-                && sequent.rc.is_empty()
-            {
-                match sequent.atoms.iter().next().unwrap() {
-                    (i, LeftRight::Left) => require_bot.insert(*i),
-                    (i, LeftRight::Right) => require_top.insert(*i),
-                };
-            }
-        }
-
-        // If the two sets are both empty, there is nothing to do.
-        if require_top.is_empty() && require_bot.is_empty() {
-            return;
-        }
-
-        // If the two sets overlap, then we are contradictory.
-        if !require_top.is_disjoint(&require_bot) {
-            *self = ClauseWaiting::new_contradictory();
-            return;
-        }
-
-        // is true, if further simplifications are possible
-        let mut simplify_further = false;
-
-        let old_irreducibles = std::mem::take(&mut self.irreducibles);
-        let old_atoms = std::mem::take(&mut self.atom_sequents);
-        let old_waiting = std::mem::take(&mut self.conj_disj_sequents);
-
-        // Perform the substitutions. Because the substitutions are so
-        // simple, a lot of simplifications can happen now.
-        for sequent in old_irreducibles.into_iter() {
-            if let Some(seq) = sequent.substitute_top_bot(&require_top, &require_bot) {
-                if seq.atoms.len() == 1 && seq.lb.is_empty() && seq.rb.is_empty() {
-                    simplify_further = true;
-                }
-                if seq.atoms.is_empty() {
-                    self.atom_sequents.insert(seq.try_into().unwrap());
-                } else {
-                    self.irreducibles.insert(seq);
-                }
-            }
-        }
-        for sequent in old_atoms.into_iter() {
-            if let Some(seq) = sequent.substitute_top_bot(&require_top, &require_bot) {
-                if seq.is_empty() {
-                    // We found an empty sequent. So the whole clause is contradictory.
-                    *self = ClauseWaiting::new_contradictory();
-                    return;
-                }
-                self.atom_sequents.insert(seq);
-            }
-        }
-        for sequent in old_waiting.into_iter() {
-            if let Some(seq) = sequent.substitute_top_bot(&require_top, &require_bot) {
-                match TryInto::<PSI>::try_into(seq) {
-                    Ok(psi) => {
-                        match TryInto::<PSB>::try_into(psi) {
-                            Ok(psb) => self.atom_sequents.insert(psb),
-                            Err(psi) => self.irreducibles.insert(psi),
-                        };
-                    }
-                    Err(ps) => {
-                        self.conj_disj_sequents.push(ps);
-                    }
-                }
-            }
-        }
-
-        if simplify_further {
-            #[allow(deprecated)]
-            self.unifiability_simplify_empty();
-        }
-    }
-
     //TODO: This code is probably not correct. Re-implement it for
     // `ClauseIrred` or `ClauseCut`.
     /*
@@ -235,13 +140,6 @@ impl ClauseWaiting {
         self.substitute(&substitution)
     }
     */
-
-    #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
-    pub fn unifiability_simplify(&mut self) {
-        #[allow(deprecated)]
-        self.unifiability_simplify_empty();
-        //self.unifiability_simplify_box_bot();
-    }
 }
 
 impl ClauseWaiting {
@@ -624,14 +522,6 @@ impl ClauseAtoms {
         }
 
         None
-    }
-
-    #[deprecated(since = "0.0.0", note = "please use the call on `ClauseIrred` instead")]
-    pub fn unifiability_simplify(self) -> ClauseWaiting {
-        let mut clause: ClauseWaiting = self.into();
-        #[allow(deprecated)]
-        clause.unifiability_simplify();
-        clause
     }
 
     pub fn process_atoms_step(self) -> ProcessAtomsResult {
