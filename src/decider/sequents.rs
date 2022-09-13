@@ -410,25 +410,23 @@ impl PSI {
             })
             .collect();
 
-        // first check the left hand side.
-
-        if seq0.lb == seq1.lb && left_atoms0 == left_atoms1 {
-            // The left sides are equal. In which direction are
-            // the right sides included?
-            if seq0.rb.is_subset(&seq1.rb) && right_atoms0.is_subset(&right_atoms1) {
-                return Some(LeftRight::Left);
-            } else if seq1.rb.is_subset(&seq0.rb) && right_atoms1.is_subset(&right_atoms0) {
-                return Some(LeftRight::Right);
-            }
-        } else if seq0.rb == seq1.rb && right_atoms0 == right_atoms1 {
-            // The right sides are equal. In which direction are the left sides included?
-            if seq0.lb.is_subset(&seq1.lb) && left_atoms0.is_subset(&left_atoms1) {
-                return Some(LeftRight::Left);
-            } else if seq1.lb.is_subset(&seq0.lb) && left_atoms1.is_subset(&left_atoms0) {
-                return Some(LeftRight::Right);
-            }
+        if seq0.lb.is_subset(&seq1.lb)
+            && left_atoms0.is_subset(&left_atoms1)
+            && seq0.rb.is_subset(&seq1.rb)
+            && right_atoms0.is_subset(&right_atoms1)
+        {
+            // `seq0` is smaller than `seq1`
+            Some(LeftRight::Left)
+        } else if seq1.lb.is_subset(&seq0.lb)
+            && left_atoms1.is_subset(&left_atoms0)
+            && seq1.rb.is_subset(&seq0.rb)
+            && right_atoms1.is_subset(&right_atoms0)
+        {
+            // `seq1` is smaller than `seq0`
+            Some(LeftRight::Right)
+        } else {
+            None
         }
-        None
     }
 }
 
