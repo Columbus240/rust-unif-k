@@ -298,6 +298,19 @@ impl PSI {
         if *self == PSI::new_valid() {
             return Some(true);
         }
+
+        // If there is a box-bottom on the left and any box on the
+        // right, then the sequent is trivially valid.
+        if self.lb.contains(&NNF::Bot) && !self.rb.is_empty() {
+            return Some(true);
+        }
+
+        // If the boxes on the left and on the right intersect, then
+        // the sequent is trivially valid.
+        if !self.lb.is_disjoint(&self.rb) {
+            return Some(true);
+        }
+
         None
     }
 
@@ -1068,5 +1081,14 @@ proptest! {
     let mut psi_simpl = psi.clone();
     psi_simpl.simplify();
     assert!(NNF::equiv_dec(&psi.to_nnf(), &psi_simpl.to_nnf()));
+    match psi.simple_check_validity() {
+    None => {},
+    Some(true) => {
+        assert!(psi.to_nnf().is_valid());
+    },
+    Some(false) => {
+        assert!(NNF::equiv_dec(&psi.to_nnf(), &NNF::Bot));
+    }
+    }
     }
 }
