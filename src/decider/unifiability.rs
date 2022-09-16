@@ -43,8 +43,12 @@ impl UnifCheckState {
     fn insert_clause_irred(&mut self, clause_irred: ClauseIrred) {
         let clause_irred = match clause_irred.unifiability_simplify() {
             Ok(clause_irred) => clause_irred,
-            Err(clause_atoms) => {
+            Err(Ok(clause_atoms)) => {
                 self.insert_clause_atoms(clause_atoms);
+                return;
+            }
+            Err(Err(clause_waiting)) => {
+                self.insert_clause_waiting(clause_waiting);
                 return;
             }
         };
@@ -145,8 +149,12 @@ fn check_unifiable_process_cut(clause: ClauseIrred, state: Arc<Mutex<UnifCheckSt
     let mut state = state.lock().unwrap();
     let clause = match clause.unifiability_simplify() {
         Ok(clause) => clause,
-        Err(clause_atoms) => {
+        Err(Ok(clause_atoms)) => {
             state.insert_clause_atoms(clause_atoms);
+            return false;
+        }
+        Err(Err(clause_waiting)) => {
+            state.insert_clause_waiting(clause_waiting);
             return false;
         }
     };
@@ -180,8 +188,11 @@ fn check_unifiable_process_atoms(
                 Ok(clause_irred) => {
                     state.lock().unwrap().insert_clause_irred(clause_irred);
                 }
-                Err(clause_atoms) => {
+                Err(Ok(clause_atoms)) => {
                     state.lock().unwrap().insert_clause_atoms(clause_atoms);
+                }
+                Err(Err(clause_waiting)) => {
+                    state.lock().unwrap().insert_clause_waiting(clause_waiting);
                 }
             }
             false

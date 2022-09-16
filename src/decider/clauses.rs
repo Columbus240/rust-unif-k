@@ -19,16 +19,62 @@ pub struct ClauseWaiting {
 }
 
 impl ClauseWaiting {
-    pub fn display_beautiful(&self) -> ClauseWaitingDisplayBeautiful {
-        ClauseWaitingDisplayBeautiful { clause: self }
-    }
-
     fn new_valid() -> ClauseWaiting {
         ClauseWaiting {
             irreducibles: BTreeSet::new(),
             atom_sequents: BTreeSet::new(),
             conj_disj_sequents: BTreeSet::new(),
         }
+    }
+
+    fn new_contradictory() -> ClauseWaiting {
+        let mut set = BTreeSet::new();
+        set.insert(PSB::new_contradictory());
+        ClauseWaiting {
+            irreducibles: BTreeSet::new(),
+            atom_sequents: set,
+            conj_disj_sequents: BTreeSet::new(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.irreducibles.is_empty()
+            && self.atom_sequents.is_empty()
+            && self.conj_disj_sequents.is_empty()
+    }
+
+    pub fn from_nnf(nnf: NNF) -> ClauseWaiting {
+        ClauseWaiting::from_psw(PSW::from_nnf(nnf))
+    }
+
+    fn from_psw(psw: PSW) -> ClauseWaiting {
+        if let Some(sequent) = psw.into_ps() {
+            // Sort the sequents into the right category.
+            let mut irreducibles: BTreeSet<PSI> = BTreeSet::new();
+            let mut atom_sequents = BTreeSet::new();
+            let mut conj_disj_sequents: BTreeSet<PS> = BTreeSet::new();
+
+            if sequent.rc.is_empty() && sequent.ld.is_empty() {
+                if sequent.atoms.is_empty() {
+                    atom_sequents.insert(sequent.try_into().unwrap());
+                } else {
+                    irreducibles.insert(sequent.try_into().unwrap());
+                }
+            } else {
+                conj_disj_sequents.insert(sequent);
+            }
+
+            ClauseWaiting {
+                irreducibles,
+                atom_sequents,
+                conj_disj_sequents,
+            }
+        } else {
+            ClauseWaiting::new_valid()
+        }
+    }
+    pub fn display_beautiful(&self) -> ClauseWaitingDisplayBeautiful {
+        ClauseWaitingDisplayBeautiful { clause: self }
     }
 
     pub fn from_sequent(ps: PS) -> ClauseWaiting {
@@ -72,124 +118,6 @@ impl ClauseWaiting {
             }
         }
         None
-    }
-
-    //TODO: This code is probably not correct. Re-implement it for
-    // `ClauseIrred` or `ClauseCut`.
-    /*
-    #[allow(dead_code)]
-    fn unifiability_simplify_box_bot(&mut self) {
-        // If there are clauses of the form `p ⇒ ⌷φ` and `p ⇒ ⌷~φ`
-        // then `p` must have the form `⌷\bot \land p`.
-
-        // First search for the relevant atoms.
-        // maps to `None` if the simplification applies to that atom.
-        let mut atoms: BTreeMap<NnfAtom, Option<Vec<NNF>>> = BTreeMap::new();
-
-        for sequent in self.irreducibles.iter() {
-            if sequent.atoms.len() != 1 || !sequent.lb.is_empty() || sequent.rb.len() != 1 {
-                continue;
-            }
-            let (atom, place) = sequent.atoms.iter().next().unwrap();
-            if *place == LeftRight::Right {
-                // The atom is on the right.
-                continue;
-            }
-            if atoms.get(atom) == Some(&None) {
-                // We already know that this atom can be simplified.
-                continue;
-            }
-            let formula = sequent.rb.first().unwrap();
-
-            // If there are some stored formulae, check for equivalence (to the negation).
-            let mut found_match = false;
-            if let Some(Some(formulae)) = atoms.get(atom) {
-                let formula_neg = formula.neg();
-                for other_formula in formulae.iter() {
-                    if NNF::equiv_dec(other_formula, &formula_neg) {
-                        found_match = true;
-                        break;
-                    }
-                }
-            }
-            if found_match {
-                atoms.insert(*atom, None);
-            } else {
-                // Insert the formula into the set.
-                if let Some(Some(formulae)) = atoms.get_mut(atom) {
-                    formulae.push(formula.clone());
-                } else {
-                    atoms.insert(*atom, Some(vec![formula.clone()]));
-                }
-            }
-        }
-
-        // Now replace all atoms `p` in `atoms` which get mapped to
-        // `None` by `p /\ [] \bot` in the whole clause.
-        let substitution: BTreeMap<NnfAtom, NNF> = atoms
-            .into_iter()
-            .filter_map(|(atom, value)| {
-                if value.is_some() {
-                    None
-                } else {
-                    Some((
-                        atom,
-                        NNF::And(vec![NNF::NnfBox(Box::new(NNF::Bot)), NNF::AtomPos(atom)]),
-                    ))
-                }
-            })
-            .collect();
-        self.substitute(&substitution)
-    }
-    */
-}
-
-impl ClauseWaiting {
-    fn new_contradictory() -> ClauseWaiting {
-        let mut set = BTreeSet::new();
-        set.insert(PSB::new_contradictory());
-        ClauseWaiting {
-            irreducibles: BTreeSet::new(),
-            atom_sequents: set,
-            conj_disj_sequents: BTreeSet::new(),
-        }
-    }
-
-    pub fn from_nnf(nnf: NNF) -> ClauseWaiting {
-        ClauseWaiting::from_psw(PSW::from_nnf(nnf))
-    }
-
-    fn is_empty(&self) -> bool {
-        self.irreducibles.is_empty()
-            && self.atom_sequents.is_empty()
-            && self.conj_disj_sequents.is_empty()
-    }
-
-    fn from_psw(psw: PSW) -> ClauseWaiting {
-        if let Some(sequent) = psw.into_ps() {
-            // Sort the sequents into the right category.
-            let mut irreducibles: BTreeSet<PSI> = BTreeSet::new();
-            let mut atom_sequents = BTreeSet::new();
-            let mut conj_disj_sequents: BTreeSet<PS> = BTreeSet::new();
-
-            if sequent.rc.is_empty() && sequent.ld.is_empty() {
-                if sequent.atoms.is_empty() {
-                    atom_sequents.insert(sequent.try_into().unwrap());
-                } else {
-                    irreducibles.insert(sequent.try_into().unwrap());
-                }
-            } else {
-                conj_disj_sequents.insert(sequent);
-            }
-
-            ClauseWaiting {
-                irreducibles,
-                atom_sequents,
-                conj_disj_sequents,
-            }
-        } else {
-            ClauseWaiting::new_valid()
-        }
     }
 
     pub fn process_easy_conjs(&mut self) {
@@ -396,7 +324,7 @@ impl ClauseAtoms {
     /// Returns `Some(false)` if the clause contains an empty sequent.
     /// Returns `Some(true)` if the clause is empty
     /// Returns `None` otherwise
-    fn simple_check_validity(&self) -> Option<bool> {
+    pub fn simple_check_validity(&self) -> Option<bool> {
         if self.irreducibles.is_empty() && self.atom_sequents.is_empty() {
             return Some(true);
         }
@@ -827,9 +755,113 @@ impl ClauseIrred {
         });
     }
 
+    //TODO: This code is probably not correct. Re-implement it for
+    // `ClauseIrred` or `ClauseCut`.
+    /*
+    #[allow(dead_code)]
+    fn unifiability_simplify_box_bot(&mut self) {
+        // If there are clauses of the form `p ⇒ ⌷φ` and `p ⇒ ⌷~φ`
+        // then `p` must have the form `⌷\bot \land p`.
+
+        // First search for the relevant atoms.
+        // maps to `None` if the simplification applies to that atom.
+        let mut atoms: BTreeMap<NnfAtom, Option<Vec<NNF>>> = BTreeMap::new();
+
+        for sequent in self.irreducibles.iter() {
+            if sequent.atoms.len() != 1 || !sequent.lb.is_empty() || sequent.rb.len() != 1 {
+                continue;
+            }
+            let (atom, place) = sequent.atoms.iter().next().unwrap();
+            if *place == LeftRight::Right {
+                // The atom is on the right.
+                continue;
+            }
+            if atoms.get(atom) == Some(&None) {
+                // We already know that this atom can be simplified.
+                continue;
+            }
+            let formula = sequent.rb.first().unwrap();
+
+            // If there are some stored formulae, check for equivalence (to the negation).
+            let mut found_match = false;
+            if let Some(Some(formulae)) = atoms.get(atom) {
+                let formula_neg = formula.neg();
+                for other_formula in formulae.iter() {
+                    if NNF::equiv_dec(other_formula, &formula_neg) {
+                        found_match = true;
+                        break;
+                    }
+                }
+            }
+            if found_match {
+                atoms.insert(*atom, None);
+            } else {
+                // Insert the formula into the set.
+                if let Some(Some(formulae)) = atoms.get_mut(atom) {
+                    formulae.push(formula.clone());
+                } else {
+                    atoms.insert(*atom, Some(vec![formula.clone()]));
+                }
+            }
+        }
+
+        // Now replace all atoms `p` in `atoms` which get mapped to
+        // `None` by `p /\ [] \bot` in the whole clause.
+        let substitution: BTreeMap<NnfAtom, NNF> = atoms
+            .into_iter()
+            .filter_map(|(atom, value)| {
+                if value.is_some() {
+                    None
+                } else {
+                    Some((
+                        atom,
+                        NNF::And(vec![NNF::NnfBox(Box::new(NNF::Bot)), NNF::AtomPos(atom)]),
+                    ))
+                }
+            })
+            .collect();
+        self.substitute(&substitution)
+    }
+    */
+
+    /// A sequent of the form `⌷p ⇒ p` has only `T` as unifier.
+    /// So whenever we find a sequent of this form, substitute `p` with `T`.
+    fn unifiability_simplify_box_p_impl_p(self) -> Result<ClauseIrred, ClauseWaiting> {
+        let mut true_variables: BTreeMap<NnfAtom, NNF> = BTreeMap::new();
+        for sequent in self.irreducibles.iter() {
+            if !sequent.rb.is_empty() {
+                continue;
+            }
+            if sequent.lb.len() != 1 {
+                continue;
+            }
+            if sequent.atoms.len() != 1 {
+                continue;
+            }
+            if let Some(NNF::AtomPos(i)) = sequent.lb.iter().next() {
+                if sequent.atoms.get(i) == Some(&LeftRight::Right) {
+                    true_variables.insert(*i, NNF::Top);
+                }
+            }
+        }
+        if true_variables.is_empty() {
+            return Ok(self);
+        }
+        let mut clause: ClauseWaiting = self.into();
+        clause.substitute(&true_variables);
+        Err(clause)
+    }
+
     /// Does not perform the cut-rule, because that one may cause loops.
-    pub fn unifiability_simplify(self) -> Result<ClauseIrred, ClauseAtoms> {
-        let mut clause_irred = self.simplify().unifiability_simplify_empty()?;
+    pub fn unifiability_simplify(self) -> Result<ClauseIrred, Result<ClauseAtoms, ClauseWaiting>> {
+        let clause_irred = match self.simplify().unifiability_simplify_empty() {
+            Ok(ci) => ci,
+            Err(ca) => return Err(Ok(ca)),
+        };
+        let mut clause_irred = match clause_irred.unifiability_simplify_box_p_impl_p() {
+            Ok(ci) => ci,
+            Err(cw) => return Err(Err(cw)),
+        };
         clause_irred.unifiability_simplify_free_atoms();
         Ok(clause_irred)
     }
@@ -839,7 +871,7 @@ impl ClauseIrred {
     /// Returns `Some(true)` if the clause is empty. i.e. the clause
     /// is valid.
     /// Returns `None` otherwise
-    fn simple_check_validity(&self) -> Option<bool> {
+    pub fn simple_check_validity(&self) -> Option<bool> {
         if self.is_empty() {
             return Some(true);
         }
@@ -1013,9 +1045,9 @@ impl ClauseIrred {
 #[allow(dead_code)]
 fn arb_clause_waiting_conj() -> impl Strategy<Value = ClauseWaiting> {
     (
-        prop::collection::btree_set(arb_psi(), 0..10),
-        prop::collection::btree_set(arb_psb(), 0..10),
-        prop::collection::btree_set(arb_ps(), 0..10),
+        prop::collection::btree_set(arb_psi(), 0..3),
+        prop::collection::btree_set(arb_psb(), 0..3),
+        prop::collection::btree_set(arb_ps(), 0..3),
     )
         .prop_map(
             |(irreducibles, atom_sequents, conj_disj_sequents)| ClauseWaiting {
@@ -1189,7 +1221,7 @@ impl ClauseSet {
         ClauseSet::from_clause_vec(vec![clause])
     }
 
-    /// The clause set is irreducibles, if the cut-rule has been applied to all sequents.
+    /// The clause set is irreducible, if the cut-rule has been applied to all sequents.
     pub fn is_irred(&self) -> bool {
         self.irreducibles.is_empty()
             && self.waiting_atoms.is_empty()
@@ -1229,8 +1261,11 @@ impl ClauseSet {
                 Ok(clause_irred) => {
                     self.irreducibles.insert(clause_irred);
                 }
-                Err(clause_atoms) => {
+                Err(Ok(clause_atoms)) => {
                     self.waiting_atoms.push(clause_atoms);
+                }
+                Err(Err(clause_waiting)) => {
+                    self.waiting_conj_disj.push(clause_waiting);
                 }
             }
         }
@@ -1365,6 +1400,16 @@ proptest! {
     if let Some(b) = clause.simple_check_validity() {
         assert_eq!(clause.to_nnf().is_valid(), b);
     }
+    }
+
+    #[test]
+    fn test_clause_waiting_substitute(clause in arb_clause_waiting_conj(), substitution in prop::collection::btree_map(any::<NnfAtom>(), crate::nnf::arb_nnf(), 0..10)) {
+    let mut clause_copy = clause.clone();
+    clause_copy.substitute(&substitution);
+    let mut clause_nnf = clause.to_nnf();
+    clause_nnf.substitute(&substitution);
+    assert!(NNF::equiv_dec(&clause_copy.to_nnf(),
+                   &clause_nnf));
     }
 
     /*
