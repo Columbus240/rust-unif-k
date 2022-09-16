@@ -255,7 +255,68 @@ fn main() {
         .build_global()
         .unwrap();
 
+    let mut iter = FineFormIter::new(1).enumerate().skip(1650);
+    for (i, nnf) in iter {
+        println!("{} {}", i, nnf.display_beautiful());
+    }
+
     /*
+    let mut i = 0;
+    loop {
+        let nnf = nnf::rnd_cnf_box_m(
+            3,
+            1,
+            4,
+            3,
+            vec![vec![vec![1, 0]], vec![vec![1, 2, 0]]],
+            vec![vec![1, 1, 1]],
+        )
+        .unwrap();
+        assert_eq!(nnf.is_valid(), nnf.is_valid_new());
+        println!("{}", i);
+        i += 1;
+    }*/
+
+    'a: for (i, nnf) in FineFormIter::new(1).enumerate() {
+        let nnf_simpl = nnf.simpl();
+        if let Ok(b) = nnf_simpl.clone().check_unifiable() {
+            if !b {
+                println!("index {}, nonunif", i);
+                continue 'a;
+            }
+            let deg = nnf_simpl.degree();
+            let mut unif_iter = fineform_correct::FineFormIter::new(0);
+            while unif_iter.get_curr_level() <= deg {
+                let subst = nnf_simpl.clone().substitute_all(&unif_iter.next().unwrap());
+                if subst.is_valid() {
+                    println!("index {}, unif ok", i);
+                    continue 'a;
+                }
+            }
+            panic!("index {}, formula {}", i, nnf_simpl.display_beautiful());
+        } else {
+            println!("index {}, non-dec", i);
+        }
+    }
+
+    /*
+    let formula = NNF::impli(NNF::NnfBox(Box::new(NNF::AtomPos(0))), NNF::AtomPos(0));
+    println!("{}", formula.display_beautiful());
+
+    for (i, nnf) in FineFormIter::new(0).enumerate() {
+        if formula.substitute_all(&nnf).is_valid_new2() {
+            println!("{}", nnf.simpl_slow().display_beautiful());
+        }
+        if i > 1000 {
+            return;
+        }
+    }
+    // old algorithm: real 9.682s, user: 54.089s
+    // old algorithm: real 7.847s, user: 48.421s
+    // new algorithm: real 5.237s, user: 26.716s
+    // new algorithm: real 5.170s, user: 27.617s
+    return;
+
     let formula = nnf_parser::LiteralParser::new()
         .parse("((0&[](0&~0))|(~0&<>~0&[]~0)|(~0&<>0&[]0)|(~0&<>~0&<>0))")
         .unwrap();
@@ -284,9 +345,6 @@ fn main() {
     let mut decidable: usize = 0;
     let mut undecidable: usize = 0;
     for (i, nnf) in FineFormIter::new(1).enumerate() {
-        //if i > 200 {
-        println!("start {}", i);
-        //}
         let nnf_simpl = nnf.clone().simpl_slow();
         let nnf_unif = nnf.clone().check_unifiable();
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
@@ -294,21 +352,15 @@ fn main() {
             (Ok(b0), Ok(b1)) => {
                 decidable += 1;
                 assert_eq!(b0, b1);
+                println!("index {} unifiable: {}", i, b0);
             }
             (Err(e), Ok(b1)) => panic!("{} should be {}", e.display_beautiful(), b1),
             (_, Err(e)) => {
                 undecidable += 1;
-                println!(
-                    "{}\nparser: {}\n{}",
-                    nnf.display_beautiful(),
-                    nnf.display_parser(),
-                    e.display_beautiful()
-                )
+                println!("index {} gets stuck at:\n{}", i, e.display_beautiful())
             }
         }
-        if i > 200 {
-            println!("end {} undec {} dec {}", i, undecidable, decidable);
-        }
+        println!("stuck {} vs. dec {}", undecidable, decidable);
     }
 
     #[allow(dead_code)]
