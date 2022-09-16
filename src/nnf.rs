@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 mod display;
 pub use display::*;
+mod random;
+pub use random::*;
 
 pub type NnfAtom = u8;
 
