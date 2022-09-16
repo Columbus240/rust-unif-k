@@ -1407,7 +1407,8 @@ proptest! {
     let clause_unif_simplified_unif =
         match clause_unif_simplified {
         Ok(clause_unif_simplified) => Into::<ClauseIrred>::into(clause_unif_simplified).simple_check_unifiability(),
-        Err(clause_unif_simplified) => clause_unif_simplified.simple_check_unifiability(),
+        Err(Ok(clause_unif_simplified)) => clause_unif_simplified.simple_check_unifiability(),
+        Err(Err(clause_unif_simplified)) => clause_unif_simplified.simple_check_unifiability(),
         };
     match (clause_simplified.simple_check_unifiability(), clause_unif_simplified_unif) {
     (Some(a), Some(b)) => assert_eq!(a, b),

@@ -171,12 +171,7 @@ fn check_unifiable_process_cut(clause: ClauseIrred, state: Arc<Mutex<UnifCheckSt
     false
 }
 
-fn check_unifiable_process_atoms(
-    clause: ClauseAtoms,
-    state: Arc<Mutex<UnifCheckState>>,
-    //visited_clauses: Arc<Mutex<BTreeSet<ClauseWaiting>>>,
-    //clause_set: Arc<Mutex<ClauseSet>>,
-) -> bool {
+fn check_unifiable_process_atoms(clause: ClauseAtoms, state: Arc<Mutex<UnifCheckState>>) -> bool {
     if let Some(b) = clause.simple_check_unifiability() {
         return b;
     }
@@ -232,6 +227,7 @@ impl UnifCheckState {
                     if let Some(b) = state.clause_set.is_unifiable() {
                         return Ok(b);
                     }
+
                     return Err(state.clause_set);
                 }
             }

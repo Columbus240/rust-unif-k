@@ -255,11 +255,6 @@ fn main() {
         .build_global()
         .unwrap();
 
-    let mut iter = FineFormIter::new(1).enumerate().skip(1650);
-    for (i, nnf) in iter {
-        println!("{} {}", i, nnf.display_beautiful());
-    }
-
     /*
     let mut i = 0;
     loop {
@@ -300,23 +295,6 @@ fn main() {
     }
 
     /*
-    let formula = NNF::impli(NNF::NnfBox(Box::new(NNF::AtomPos(0))), NNF::AtomPos(0));
-    println!("{}", formula.display_beautiful());
-
-    for (i, nnf) in FineFormIter::new(0).enumerate() {
-        if formula.substitute_all(&nnf).is_valid_new2() {
-            println!("{}", nnf.simpl_slow().display_beautiful());
-        }
-        if i > 1000 {
-            return;
-        }
-    }
-    // old algorithm: real 9.682s, user: 54.089s
-    // old algorithm: real 7.847s, user: 48.421s
-    // new algorithm: real 5.237s, user: 26.716s
-    // new algorithm: real 5.170s, user: 27.617s
-    return;
-
     let formula = nnf_parser::LiteralParser::new()
         .parse("((0&[](0&~0))|(~0&<>~0&[]~0)|(~0&<>0&[]0)|(~0&<>~0&<>0))")
         .unwrap();
