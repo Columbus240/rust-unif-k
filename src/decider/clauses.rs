@@ -1317,6 +1317,12 @@ impl ClauseSet {
                 Some(true) => return Some(true),
                 Some(false) => {}
             }
+            let clause: ClauseIrred = clause.clone().into();
+            let nnf = clause.to_nnf();
+            if nnf.substitute_all(&NNF::Top).is_valid() || nnf.substitute_all(&NNF::Bot).is_valid()
+            {
+                return Some(true);
+            }
         }
 
         for clause in self.irreducibles.iter() {
@@ -1327,6 +1333,11 @@ impl ClauseSet {
                 Some(true) => return Some(true),
                 Some(false) => {}
             }
+            let nnf = clause.to_nnf();
+            if nnf.substitute_all(&NNF::Top).is_valid() || nnf.substitute_all(&NNF::Bot).is_valid()
+            {
+                return Some(true);
+            }
         }
         for clause in self.waiting_atoms.iter() {
             match clause.simple_check_unifiability() {
@@ -1336,6 +1347,11 @@ impl ClauseSet {
                 Some(true) => return Some(true),
                 Some(false) => {}
             }
+            let nnf = clause.to_nnf();
+            if nnf.substitute_all(&NNF::Top).is_valid() || nnf.substitute_all(&NNF::Bot).is_valid()
+            {
+                return Some(true);
+            }
         }
         for clause in self.waiting_conj_disj.iter() {
             match clause.simple_check_unifiability() {
@@ -1344,6 +1360,11 @@ impl ClauseSet {
                 }
                 Some(true) => return Some(true),
                 Some(false) => {}
+            }
+            let nnf = clause.to_nnf();
+            if nnf.substitute_all(&NNF::Top).is_valid() || nnf.substitute_all(&NNF::Bot).is_valid()
+            {
+                return Some(true);
             }
         }
         if maybe_unifiable {
