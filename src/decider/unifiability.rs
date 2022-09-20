@@ -6,6 +6,12 @@ use std::sync::{Arc, Mutex};
 
 use rayon::prelude::*;
 
+//IDEA/TODO: To save memory in `visited_clauses`, we can (because the
+// current algorithm always reduces the complexity of the clauses)
+// remove clauses in `visited_clauses` if their complexity exceeds the
+// complexity of all clauses in the current `clause_set`.
+// But this first needs a precise (& working) measure of complexity.
+
 fn clause_waiting_unif_step(mut clause: ClauseWaiting) -> ClauseWaiting {
     clause.process_easy_conjs();
     let mut clause = clause.process_easy_boxes();
@@ -224,7 +230,7 @@ impl UnifCheckState {
                     // Otherwise return
                     let state: UnifCheckState =
                         Arc::try_unwrap(state).unwrap().into_inner().unwrap();
-                    if let Some(b) = state.clause_set.is_unifiable() {
+                    if let Some(b) = state.clause_set.simple_check_unifiable() {
                         return Ok(b);
                     }
 
@@ -341,7 +347,7 @@ proptest! {
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {
             (Ok(b0), Ok(b1)) => assert_eq!(b0, b1),
-            (Err(e), _) => {}, //panic!("{}", e.display_beautiful()),
+            (Err(e), Ok(_)) => panic!("{}", e.display_beautiful()),
             (_, Err(_)) => {},
         }
     }

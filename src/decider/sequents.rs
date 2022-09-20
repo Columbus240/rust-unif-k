@@ -106,6 +106,23 @@ impl PSW {
     }
 }
 
+pub struct PSIDisplayBeautiful<'a> {
+    psi: &'a PSI,
+}
+
+impl<'a> std::fmt::Display for PSIDisplayBeautiful<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (left, right) = self.psi.to_nnf_lr();
+        let (left, right) = (left.simpl_slow(), right.simpl_slow());
+        write!(
+            f,
+            "{}⇒{}",
+            left.display_beautiful(),
+            right.display_beautiful()
+        )
+    }
+}
+
 pub struct PSWDisplayBeautiful<'a> {
     psw: &'a PSW,
 }
@@ -192,12 +209,42 @@ impl PSI {
         }
     }
 
+    /// Represent this sequent as `NNF` but keep the left and right
+    /// half of the sequent separate
+    pub fn to_nnf_lr(&self) -> (NNF, NNF) {
+        let mut atoms_l = Vec::new();
+        let mut atoms_r = Vec::new();
+        for (i, lr) in self.atoms.iter() {
+            match lr {
+                LeftRight::Left => atoms_l.push(i),
+                LeftRight::Right => atoms_r.push(i),
+            }
+        }
+
+        let left = atoms_l
+            .iter()
+            .map(|x| NNF::AtomPos(**x))
+            .chain(self.lb.iter().map(|x| NNF::NnfBox(Box::new(x.clone()))))
+            .collect();
+        let right = atoms_r
+            .iter()
+            .map(|x| NNF::AtomPos(**x))
+            .chain(self.rb.iter().map(|x| NNF::NnfBox(Box::new(x.clone()))))
+            .collect();
+        (NNF::And(left), NNF::Or(right))
+    }
+
     pub fn to_nnf(&self) -> NNF {
-        Into::<PSW>::into(self.clone()).to_nnf()
+        let (l, r) = self.to_nnf_lr();
+        NNF::impli(l, r).simpl_slow()
     }
 
     pub fn is_empty(&self) -> bool {
         self.atoms.is_empty() && self.lb.is_empty() && self.rb.is_empty()
+    }
+
+    pub fn display_beautiful(&self) -> PSIDisplayBeautiful {
+        PSIDisplayBeautiful { psi: self }
     }
 
     pub fn substitute(mut self, substitution: &BTreeMap<NnfAtom, NNF>) -> PSW {
@@ -382,6 +429,26 @@ impl PSI {
         }
     */
 
+    pub fn left_atoms(&self) -> BTreeSet<NnfAtom> {
+        self.atoms
+            .iter()
+            .filter_map(|(atom, dir)| match dir {
+                LeftRight::Left => Some(*atom),
+                LeftRight::Right => None,
+            })
+            .collect()
+    }
+
+    pub fn right_atoms(&self) -> BTreeSet<NnfAtom> {
+        self.atoms
+            .iter()
+            .filter_map(|(atom, dir)| match dir {
+                LeftRight::Left => None,
+                LeftRight::Right => Some(*atom),
+            })
+            .collect()
+    }
+
     /// If the two sequents have this form:
     ///    Γ ⇒ Δ1; Γ ⇒ Δ2 with Δ1 subset Δ2
     /// or the form
@@ -390,38 +457,10 @@ impl PSI {
     /// If the inclusions are the other way around, return `Some(Right)`.
     /// Otherwise return `None`.
     pub fn check_subset(seq0: &PSI, seq1: &PSI) -> Option<LeftRight> {
-        let left_atoms0: BTreeSet<_> = seq0
-            .atoms
-            .iter()
-            .filter_map(|(atom, dir)| match dir {
-                LeftRight::Left => Some(atom),
-                LeftRight::Right => None,
-            })
-            .collect();
-        let left_atoms1: BTreeSet<_> = seq1
-            .atoms
-            .iter()
-            .filter_map(|(atom, dir)| match dir {
-                LeftRight::Left => Some(atom),
-                LeftRight::Right => None,
-            })
-            .collect();
-        let right_atoms0: BTreeSet<_> = seq0
-            .atoms
-            .iter()
-            .filter_map(|(atom, dir)| match dir {
-                LeftRight::Left => None,
-                LeftRight::Right => Some(atom),
-            })
-            .collect();
-        let right_atoms1: BTreeSet<_> = seq1
-            .atoms
-            .iter()
-            .filter_map(|(atom, dir)| match dir {
-                LeftRight::Left => None,
-                LeftRight::Right => Some(atom),
-            })
-            .collect();
+        let left_atoms0: BTreeSet<_> = seq0.left_atoms();
+        let left_atoms1: BTreeSet<_> = seq1.left_atoms();
+        let right_atoms0: BTreeSet<_> = seq0.right_atoms();
+        let right_atoms1: BTreeSet<_> = seq1.right_atoms();
 
         if seq0.lb.is_subset(&seq1.lb)
             && left_atoms0.is_subset(&left_atoms1)
@@ -1049,6 +1088,13 @@ proptest! {
     } else {
         assert!(nnf.is_valid());
     }
+    }
+
+    #[test]
+    fn test_psi_to_nnf(psi in arb_psi()) {
+    let (l, r) = psi.to_nnf_lr();
+    let nnf = NNF::impli(l, r);
+    assert!(NNF::equiv_dec(&psi.to_nnf(), &nnf));
     }
 
     #[test]

@@ -63,6 +63,15 @@ impl NNF {
         }
     }
 
+    pub fn contains_atom(&self, atom: NnfAtom) -> bool {
+        match self {
+            NNF::AtomPos(i) | NNF::AtomNeg(i) => *i == atom,
+            NNF::Bot | NNF::Top => false,
+            NNF::And(a) | NNF::Or(a) => a.par_iter().any(|x| x.contains_atom(atom)),
+            NNF::NnfBox(a) | NNF::NnfDia(a) => a.contains_atom(atom),
+        }
+    }
+
     #[allow(dead_code)]
     pub fn and(phi: NNF, psi: NNF) -> NNF {
         NNF::And(vec![phi, psi])

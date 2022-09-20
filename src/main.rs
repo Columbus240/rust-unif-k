@@ -272,6 +272,7 @@ fn main() {
         i += 1;
     }*/
 
+    /*
     'a: for (i, nnf) in FineFormIter::new(1).enumerate() {
         let nnf_simpl = nnf.simpl();
         if let Ok(b) = nnf_simpl.clone().check_unifiable() {
@@ -293,6 +294,7 @@ fn main() {
             println!("index {}, non-dec", i);
         }
     }
+    */
 
     /*
     let formula = nnf_parser::LiteralParser::new()

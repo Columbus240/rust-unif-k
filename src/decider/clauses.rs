@@ -575,8 +575,10 @@ impl ClauseIrred {
         let mut new_sequents: BTreeSet<PSI> = BTreeSet::new();
 
         for mut sequent in self.irreducibles.into_iter() {
+            // Simplify the sequent.
             sequent.simplify();
 
+            // Check whether the sequent is trivially valid or contradictory
             match sequent.simple_check_validity() {
                 Some(true) => {
                     continue;
@@ -614,6 +616,130 @@ impl ClauseIrred {
         }
 
         self.irreducibles = new_sequents;
+
+        //TODO: Replace any instance of `φ⇒ψ,θ ; φ,ψ⇒θ ; φ,θ⇒ψ` with `φ⇒ψ ; φ⇒θ`
+        // This currently only treats the special case with `φ := p`, `ψ := ⌷p` and `θ := ⌷~p`.
+        // It replaces these three sequents with `p ⇒ ⌷Bot` because this holds in this case.
+        let test_set: BTreeSet<PSI> = {
+            let mut set = BTreeSet::new();
+            set.insert(PSI {
+                atoms: {
+                    let mut map = BTreeMap::new();
+                    map.insert(0, LeftRight::Left);
+                    map
+                },
+                lb: BTreeSet::new(),
+                rb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::AtomPos(0));
+                    set.insert(NNF::AtomNeg(0));
+                    set
+                },
+            });
+            set.insert(PSI {
+                atoms: {
+                    let mut map = BTreeMap::new();
+                    map.insert(0, LeftRight::Left);
+                    map
+                },
+                lb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::AtomNeg(0));
+                    set
+                },
+                rb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::AtomPos(0));
+                    set
+                },
+            });
+            set.insert(PSI {
+                atoms: {
+                    let mut map = BTreeMap::new();
+                    map.insert(0, LeftRight::Left);
+                    map
+                },
+                lb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::AtomPos(0));
+                    set
+                },
+                rb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::AtomNeg(0));
+                    set
+                },
+            });
+            set
+        };
+
+        if self.irreducibles.is_superset(&test_set) {
+            for seq in test_set.iter() {
+                self.irreducibles.remove(seq);
+            }
+            self.irreducibles.insert(PSI {
+                atoms: {
+                    let mut map = BTreeMap::new();
+                    map.insert(0, LeftRight::Left);
+                    map
+                },
+                lb: BTreeSet::new(),
+                rb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::Bot);
+                    set
+                },
+            });
+        }
+
+        //TODO: Replace any instance of `φ⇒ψ ; φ,ψ⇒θ` with `φ⇒θ`.
+        // This currently only treats the special case with `φ := p`, `ψ := ⌷Bot` and `θ := Bot`.
+        let test_set: BTreeSet<PSI> = {
+            let mut set = BTreeSet::new();
+            set.insert(PSI {
+                atoms: {
+                    let mut map = BTreeMap::new();
+                    map.insert(0, LeftRight::Left);
+                    map
+                },
+                rb: BTreeSet::new(),
+                lb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::Bot);
+                    set
+                },
+            });
+            set.insert(PSI {
+                atoms: {
+                    let mut map = BTreeMap::new();
+                    map.insert(0, LeftRight::Left);
+                    map
+                },
+                lb: {
+                    let mut set = BTreeSet::new();
+                    set.insert(NNF::Bot);
+                    set
+                },
+                rb: BTreeSet::new(),
+            });
+            set
+        };
+
+        if self.irreducibles.is_superset(&test_set) {
+            for seq in test_set.iter() {
+                self.irreducibles.remove(seq);
+            }
+            self.irreducibles.insert(PSI {
+                atoms: {
+                    let mut map = BTreeMap::new();
+                    map.insert(0, LeftRight::Left);
+                    map
+                },
+                lb: BTreeSet::new(),
+                rb: BTreeSet::new(),
+            });
+        }
+
         self
     }
 
@@ -852,16 +978,155 @@ impl ClauseIrred {
         Err(clause)
     }
 
+    /// If `p⇒φ ; φ⇒p` occurs, with `φ` not containing `p`, then substitute `p` by `φ`.
+    fn unifiability_simplify_equivalents(mut self) -> Result<ClauseIrred, ClauseWaiting> {
+        // First create iterators of sequents which have on their left/right only a free atom.
+
+        let left_atom_sequents = self.irreducibles.iter().filter_map(|psi| {
+            let left_atoms = psi.left_atoms();
+            if psi.lb.is_empty() && left_atoms.len() == 1 {
+                Some((
+                    psi,
+                    *left_atoms.iter().next().unwrap(),
+                    psi.to_nnf_lr().1.simpl(),
+                ))
+            } else {
+                None
+            }
+        });
+        let right_atom_sequents = self.irreducibles.iter().filter_map(|psi| {
+            let right_atoms = psi.right_atoms();
+            if psi.rb.is_empty() && right_atoms.len() == 1 {
+                Some((
+                    psi,
+                    *right_atoms.iter().next().unwrap(),
+                    psi.to_nnf_lr().0.simpl(),
+                ))
+            } else {
+                None
+            }
+        });
+
+        // Now "intersect" the two iterators
+        // This has n^2 time complexity...
+
+        let mut data: Option<(BTreeMap<u8, NNF>, PSI, PSI)> = None;
+
+        'a: for (left_psi, left_atom, left_right_formula) in left_atom_sequents {
+            for (right_psi, right_atom, right_left_formula) in right_atom_sequents.clone() {
+                if left_atom == right_atom && left_right_formula == right_left_formula {
+                    // An assert here, because it is noteworthy, if
+                    // some other formula appears in this situation.
+                    //assert_eq!(left_right_formula, NNF::boxx(NNF::Bot));
+                    // We found a match. Remove `left_psi` and `right_psi` and perform the substitution of `left_atom` by `left_right_formula`.
+
+                    let mut substitution = BTreeMap::new();
+                    substitution.insert(left_atom, left_right_formula);
+                    data = Some((substitution, left_psi.clone(), right_psi.clone()));
+                    break 'a;
+                }
+            }
+        }
+
+        if let Some((substitution, left_psi, right_psi)) = data {
+            self.irreducibles.remove(&left_psi);
+            self.irreducibles.remove(&right_psi);
+
+            let mut clause: ClauseWaiting = self.into();
+            clause.substitute(&substitution);
+            Err(clause)
+        } else {
+            // no substitution has been performed
+            Ok(self)
+        }
+    }
+
+    fn unifiability_simplify_p_impl_box_bot(&mut self) {
+        // if the sequent `p ⇒ ⌷bot` occurs in the clause,
+        // then all (other) sequents of the form `p, Γ ⇒ Δ, ⌷φ` can be
+        // removed.
+
+        let mut atoms_implying_box_bot: BTreeSet<NnfAtom> = BTreeSet::new();
+
+        let test_rb = {
+            let mut set = BTreeSet::new();
+            set.insert(NNF::Bot);
+            set
+        };
+
+        for sequent in self.irreducibles.iter() {
+            if sequent.lb.is_empty() && sequent.atoms.len() == 1 && sequent.rb == test_rb {
+                if let (atom, LeftRight::Left) = sequent.atoms.iter().next().unwrap() {
+                    atoms_implying_box_bot.insert(*atom);
+                }
+            }
+        }
+
+        let mut psi: PSI = PSI {
+            atoms: BTreeMap::new(),
+            lb: BTreeSet::new(),
+            rb: test_rb,
+        };
+
+        if atoms_implying_box_bot.is_empty() {
+            return;
+        }
+
+        if cfg!(debug) {
+            for atom in atoms_implying_box_bot.iter() {
+                psi.atoms.clear();
+                psi.atoms.insert(*atom, LeftRight::Left);
+                assert!(self.irreducibles.contains(&psi));
+            }
+        }
+
+        self.irreducibles.drain_filter(|sequent| {
+            // return true to remove the element. return false to keep it.
+            let left_atoms = sequent.left_atoms();
+            if !atoms_implying_box_bot.is_disjoint(&left_atoms) && !sequent.rb.is_empty() {
+                // We could remove this sequent now.
+                // But first make sure that it isn't the sequent with `p⇒⌷bot`.
+                if sequent.lb.is_empty() && sequent.atoms.len() == 1 && sequent.rb.len() == 1 {
+                    // We already know that one of the atoms in
+                    // `atoms_implying_box_bot` must be in
+                    // `left_atoms`.
+                    if NNF::Bot != *sequent.rb.iter().next().unwrap() {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                } else {
+                    return true;
+                }
+            }
+            false
+        });
+
+        if cfg!(debug) {
+            for atom in atoms_implying_box_bot.iter() {
+                psi.atoms.clear();
+                psi.atoms.insert(*atom, LeftRight::Left);
+                assert!(self.irreducibles.contains(&psi));
+            }
+        }
+    }
+
     /// Does not perform the cut-rule, because that one may cause loops.
+    //TODO: Deal with `p ⇒ φ ; φ ⇒ p` with `φ` variable-free, by substituting `p` by `φ`.
     pub fn unifiability_simplify(self) -> Result<ClauseIrred, Result<ClauseAtoms, ClauseWaiting>> {
         let clause_irred = match self.simplify().unifiability_simplify_empty() {
             Ok(ci) => ci,
             Err(ca) => return Err(Ok(ca)),
         };
-        let mut clause_irred = match clause_irred.unifiability_simplify_box_p_impl_p() {
+        let clause_irred = match clause_irred.unifiability_simplify_box_p_impl_p() {
             Ok(ci) => ci,
             Err(cw) => return Err(Err(cw)),
         };
+        let mut clause_irred = match clause_irred.unifiability_simplify_equivalents() {
+            Ok(ci) => ci,
+            Err(cw) => return Err(Err(cw)),
+        };
+        clause_irred.unifiability_simplify_p_impl_box_bot();
         clause_irred.unifiability_simplify_free_atoms();
         Ok(clause_irred)
     }
@@ -1302,7 +1567,7 @@ impl ClauseSet {
 
     /// Tries to check for unifiability, without making further simplifications.
     /// Try calling `unifiability_simplify` beforehand, for better results.
-    pub fn is_unifiable(&self) -> Option<bool> {
+    pub fn simple_check_unifiable(&self) -> Option<bool> {
         if self.is_empty() {
             return Some(false);
         }
