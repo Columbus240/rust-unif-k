@@ -72,10 +72,12 @@ fn rnd_sign(phi: NNF) -> NNF {
     }
 }
 
-fn rnd_length(d: usize, c: &Vec<WeightedAliasIndex<usize>>) -> usize {
+fn rnd_length(d: usize, c: &[WeightedAliasIndex<usize>]) -> usize {
     // If `C[d]` does not exist, use the last element of `C`
     let default_weights = WeightedAliasIndex::new(vec![1]).unwrap();
-    let weights = c.get(d).unwrap_or(c.last().unwrap_or(&default_weights));
+    let weights = c
+        .get(d)
+        .unwrap_or_else(|| c.last().unwrap_or(&default_weights));
 
     weights.sample(&mut thread_rng()) + 1
 }
@@ -85,10 +87,10 @@ fn rnd_propnum(d: usize, p: &Vec<Vec<WeightedAliasIndex<usize>>>, k: usize) -> u
         return 0;
     }
     let default_weights = WeightedAliasIndex::new(vec![1]).unwrap();
-    let weights_vec = p.get(d + 1).unwrap_or(p.last().unwrap());
+    let weights_vec = p.get(d + 1).unwrap_or_else(|| p.last().unwrap());
     let weights = weights_vec
         .get(k)
-        .unwrap_or(weights_vec.last().unwrap_or(&default_weights));
+        .unwrap_or_else(|| weights_vec.last().unwrap_or(&default_weights));
     weights.sample(&mut thread_rng())
 }
 

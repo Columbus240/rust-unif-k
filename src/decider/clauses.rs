@@ -1090,11 +1090,7 @@ impl ClauseIrred {
                     // We already know that one of the atoms in
                     // `atoms_implying_box_bot` must be in
                     // `left_atoms`.
-                    if NNF::Bot != *sequent.rb.iter().next().unwrap() {
-                        return true;
-                    } else {
-                        return false;
-                    }
+                    return NNF::Bot != *sequent.rb.iter().next().unwrap();
                 } else {
                     return true;
                 }
