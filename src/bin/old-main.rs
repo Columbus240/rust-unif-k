@@ -1,31 +1,8 @@
-#![feature(once_cell)]
-#![feature(btree_drain_filter)]
-#![feature(map_first_last)]
+extern crate generator;
+use generator::FineFormIter;
+use generator::{arb_nnf_var, NnfAtom, NNF};
 
-#[allow(unused_imports)]
 use std::collections::btree_map::BTreeMap;
-#[allow(unused_imports)]
-use std::collections::btree_set::BTreeSet;
-
-#[allow(unused_imports)]
-use rayon::prelude::*;
-
-#[macro_use]
-extern crate lalrpop_util;
-
-lalrpop_mod!(#[allow(clippy::all)] pub nnf_parser, "/src/nnf_parser.rs");
-
-mod decider;
-mod fineform_correct;
-//mod lazy_decider;
-//mod lazy_nnf;
-mod nnf;
-mod powerset;
-
-#[allow(unused_imports)]
-use crate::decider::*;
-use crate::fineform_correct::*;
-use crate::nnf::*;
 
 /*
 /// Conjecture: If `φ` is unifiable, then there exists a unifier of
@@ -271,30 +248,6 @@ fn main() {
         println!("{}", i);
         i += 1;
     }*/
-
-    /*
-    'a: for (i, nnf) in FineFormIter::new(1).enumerate() {
-        let nnf_simpl = nnf.simpl();
-        if let Ok(b) = nnf_simpl.clone().check_unifiable() {
-            if !b {
-                println!("index {}, nonunif", i);
-                continue 'a;
-            }
-            let deg = nnf_simpl.degree();
-            let mut unif_iter = fineform_correct::FineFormIter::new(0);
-            while unif_iter.get_curr_level() <= deg {
-                let subst = nnf_simpl.clone().substitute_all(&unif_iter.next().unwrap());
-                if subst.is_valid() {
-                    println!("index {}, unif ok", i);
-                    continue 'a;
-                }
-            }
-            panic!("index {}, formula {}", i, nnf_simpl.display_beautiful());
-        } else {
-            println!("index {}, non-dec", i);
-        }
-    }
-    */
 
     /*
     let formula = nnf_parser::LiteralParser::new()
