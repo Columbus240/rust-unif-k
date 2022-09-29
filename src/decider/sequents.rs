@@ -535,7 +535,17 @@ impl PSW {
                     new_left_waiting.append(&mut conjuncts);
                 }
                 NNF::Or(disjuncts) => {
-                    self.ld.push(disjuncts);
+                    if disjuncts.is_empty() {
+                        // Then the disjunction is empty, so bot. On
+                        // the left, so the sequent is valid.
+                        return None;
+                    } else if disjuncts.len() == 1 {
+                        // There is a single formula on the left, push
+                        // it to the new waiting formulae
+                        new_left_waiting.push(disjuncts.into_iter().next().unwrap());
+                    } else {
+                        self.ld.push(disjuncts);
+                    }
                 }
                 NNF::NnfBox(phi) => {
                     self.lb.insert(*phi);
@@ -566,7 +576,17 @@ impl PSW {
                     return None;
                 }
                 NNF::And(conjuncts) => {
-                    self.rc.push(conjuncts);
+                    if conjuncts.is_empty() {
+                        // Then the conjunction is empty, so top. On
+                        // the right, so the sequent is valid.
+                        return None;
+                    } else if conjuncts.len() == 1 {
+                        // There is a single formula on the left, push
+                        // it to the new waiting formulae
+                        new_right_waiting.push(conjuncts.into_iter().next().unwrap());
+                    } else {
+                        self.rc.push(conjuncts);
+                    }
                 }
                 NNF::Or(mut disjuncts) => {
                     new_right_waiting.append(&mut disjuncts);
@@ -1136,5 +1156,15 @@ proptest! {
         assert!(NNF::equiv_dec(&psi.to_nnf(), &NNF::Bot));
     }
     }
+    }
+
+    #[test]
+    fn test_process_easy_conjs(ps in arb_ps()) {
+    let mut ps_simpl = ps.clone();
+    ps_simpl.process_easy_conjs();
+    let ps : PSW = ps.into();
+    let ps_simpl: PSW = ps_simpl.into();
+    println!("{} to {}", ps.display_beautiful(), ps_simpl.display_beautiful());
+    assert!(NNF::equiv_dec(&ps.to_nnf(), &ps_simpl.to_nnf()));
     }
 }

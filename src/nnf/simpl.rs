@@ -15,24 +15,6 @@ enum BoxConjuncts {
 }
 
 impl BoxConjuncts {
-    fn add_nnf(self, nnf: NNF) -> BoxConjuncts {
-        match self {
-            BoxConjuncts::None => {
-                let new_bc = BoxConjuncts::Some(Box::new(NNF_Conj::new_empty()));
-                new_bc.add_nnf(nnf)
-            }
-            // The box-bottom absorbs the new formula.
-            BoxConjuncts::Bot => BoxConjuncts::Bot,
-            BoxConjuncts::Some(nc) => {
-                if let Some(new_nc) = nc.add_nnf(nnf) {
-                    BoxConjuncts::Some(Box::new(new_nc))
-                } else {
-                    BoxConjuncts::Bot
-                }
-            }
-        }
-    }
-
     fn add_precise(self, phi: NNF_precise) -> BoxConjuncts {
         match self {
             BoxConjuncts::None => {
@@ -92,24 +74,6 @@ enum DiaDisjuncts {
 }
 
 impl DiaDisjuncts {
-    fn add_nnf(self, nnf: NNF) -> DiaDisjuncts {
-        match self {
-            DiaDisjuncts::None => {
-                let new_dd = DiaDisjuncts::Some(Box::new(NNF_Disj::new_empty()));
-                new_dd.add_nnf(nnf)
-            }
-            // The dia-top absorbs the new formula.
-            DiaDisjuncts::Top => DiaDisjuncts::Top,
-            DiaDisjuncts::Some(nd) => {
-                if let Some(new_nd) = nd.add_nnf(nnf) {
-                    DiaDisjuncts::Some(Box::new(new_nd))
-                } else {
-                    DiaDisjuncts::Top
-                }
-            }
-        }
-    }
-
     fn into_nnf(self) -> Option<NNF> {
         match self {
             DiaDisjuncts::None => None,
@@ -173,6 +137,52 @@ enum NNF_precise {
 }
 
 impl NNF_precise {
+    fn and(self, other: NNF_precise) -> NNF_precise {
+        match (self, other) {
+            (NNF_precise::Bot, _) | (_, NNF_precise::Bot) => NNF_precise::Bot,
+            (NNF_precise::Top, other) | (other, NNF_precise::Top) => other,
+            (NNF_precise::And(conj), other) | (other, NNF_precise::And(conj)) => {
+                if let Some(conj) = conj.add_precise(other) {
+                    NNF_precise::And(conj)
+                } else {
+                    NNF_precise::Bot
+                }
+            }
+            (a, b) => {
+                let conj = NNF_Conj::new_empty();
+                if let Some(conj) = conj.add_precise(a) {
+                    if let Some(conj) = conj.add_precise(b) {
+                        return NNF_precise::And(conj);
+                    }
+                }
+                NNF_precise::Bot
+            }
+        }
+    }
+
+    fn or(self, other: NNF_precise) -> NNF_precise {
+        match (self, other) {
+            (NNF_precise::Top, _) | (_, NNF_precise::Top) => NNF_precise::Top,
+            (NNF_precise::Bot, other) | (other, NNF_precise::Bot) => other,
+            (NNF_precise::Or(disj), other) | (other, NNF_precise::Or(disj)) => {
+                if let Some(disj) = disj.add_precise(other) {
+                    NNF_precise::Or(disj)
+                } else {
+                    NNF_precise::Top
+                }
+            }
+            (a, b) => {
+                let disj = NNF_Disj::new_empty();
+                if let Some(disj) = disj.add_precise(a) {
+                    if let Some(disj) = disj.add_precise(b) {
+                        return NNF_precise::Or(disj);
+                    }
+                }
+                NNF_precise::Top
+            }
+        }
+    }
+
     fn from_nnf(nnf: NNF) -> NNF_precise {
         match nnf {
             NNF::AtomPos(i) => NNF_precise::AtomPos(i),
@@ -180,18 +190,18 @@ impl NNF_precise {
             NNF::Bot => NNF_precise::Bot,
             NNF::Top => NNF_precise::Top,
             NNF::And(conjuncts) => {
-                if let Some(conj) = NNF_Conj::from_nnf_vec(conjuncts) {
-                    NNF_precise::And(conj)
-                } else {
-                    NNF_precise::Bot
+                let mut base: NNF_precise = NNF_precise::Top;
+                for conjunct in conjuncts {
+                    base = base.and(NNF_precise::from_nnf(conjunct));
                 }
+                base
             }
             NNF::Or(disjuncts) => {
-                if let Some(disj) = NNF_Disj::from_nnf_vec(disjuncts) {
-                    NNF_precise::Or(disj)
-                } else {
-                    NNF_precise::Top
+                let mut base: NNF_precise = NNF_precise::Bot;
+                for disjunct in disjuncts {
+                    base = base.or(NNF_precise::from_nnf(disjunct));
                 }
+                base
             }
             NNF::NnfBox(phi) => {
                 let phi = NNF_precise::from_nnf(*phi);
@@ -317,12 +327,36 @@ impl NNF_Disj {
             NNF_precise::NnfBox(phi) => {
                 if *phi == NNF_precise::Top {
                     return None;
+                } else if *phi == NNF_precise::Bot && !self.box_disjuncts.is_empty() {
+                    // If there are other `bd` than `Bot`, then we can omit the `Bot`
+                    return Some(self);
                 }
+                // If there are other `bd` than `Bot`, then we can omit the `Bot`
+                self.box_disjuncts.remove(&NNF_precise::Bot);
+
                 self.box_disjuncts.insert(*phi);
                 Some(self)
             }
-            NNF_precise::And(conj) => {
-                //TODO: Apply distributivity here.
+            NNF_precise::And(mut conj) => {
+                // If there is another `and_disjunts` which differs
+                // from `conj` only in the sign of an atom, then
+                // simplify using distributivity.
+                let mut atom = None;
+                self.and_disjuncts.retain(|other| {
+                    if atom.is_some() {
+                        return true;
+                    }
+                    if let Some(i) = conj.differ_by_single_atom(other) {
+                        atom = Some(i);
+                        false
+                    } else {
+                        true
+                    }
+                });
+                if let Some(i) = atom {
+                    conj.atoms_neg.remove(&i);
+                    conj.atoms_pos.remove(&i);
+                }
                 self.and_disjuncts.insert(conj);
                 Some(self)
             }
@@ -352,7 +386,6 @@ impl NNF_Disj {
         let and_disjuncts = std::mem::take(&mut self.and_disjuncts);
 
         // now simplify the parts, while writing the results back into `self`
-
         for bd in box_disjuncts.into_iter() {
             let bd = bd.simpl();
 
@@ -435,60 +468,6 @@ impl NNF_Disj {
         NNF_precise::Or(self)
     }
 
-    /// Return `None` if the result is valid.
-    fn add_nnf(mut self, nnf: NNF) -> Option<NNF_Disj> {
-        match nnf {
-            NNF::AtomPos(i) => {
-                if self.atoms_neg.contains(&i) {
-                    None
-                } else {
-                    self.atoms_pos.insert(i);
-                    Some(self)
-                }
-            }
-            NNF::AtomNeg(i) => {
-                if self.atoms_pos.contains(&i) {
-                    None
-                } else {
-                    self.atoms_neg.insert(i);
-                    Some(self)
-                }
-            }
-            NNF::Top => None,
-            NNF::Bot => Some(self),
-            NNF::Or(disjuncts) => {
-                let mut disj = self;
-                for disjunct in disjuncts.into_iter() {
-                    disj = disj.add_nnf(disjunct)?;
-                }
-                Some(disj)
-            }
-            NNF::NnfDia(phi) => {
-                self.diamond_disjuncts = self.diamond_disjuncts.add_nnf(*phi);
-                Some(self)
-            }
-            NNF::NnfBox(phi) => {
-                self.box_disjuncts.insert(NNF_precise::from_nnf(*phi));
-                Some(self)
-            }
-            NNF::And(conjuncts) => {
-                if let Some(conj) = NNF_Conj::from_nnf_vec(conjuncts) {
-                    self.and_disjuncts.insert(conj);
-                }
-                // otherwise `conj` was contradictory and thus can be removed from the conjunction
-                Some(self)
-            }
-        }
-    }
-
-    fn from_nnf_vec(disjuncts: Vec<NNF>) -> Option<NNF_Disj> {
-        let mut disj = NNF_Disj::new_empty();
-        for disjunct in disjuncts.into_iter() {
-            disj = disj.add_nnf(disjunct)?;
-        }
-        Some(disj)
-    }
-
     fn into_nnf(self) -> NNF {
         let atom_pos = self.atoms_pos.into_iter().map(NNF::AtomPos);
         let atom_neg = self.atoms_neg.into_iter().map(NNF::AtomNeg);
@@ -514,6 +493,32 @@ impl NNF_Disj {
         }
 
         NNF::Or(vec)
+    }
+
+    /// Returns `Some(i)` iff `self` and `other` only differ in
+    /// exactly the sign of the atom `i`.  Otherwise returns `None`.
+    fn differ_by_single_atom(&self, other: &NNF_Disj) -> Option<NnfAtom> {
+        // For the below to work, we need the `atoms_pos` and `atoms_neg` to be disjoint.
+        assert!(self.atoms_pos.is_disjoint(&self.atoms_neg));
+        assert!(other.atoms_pos.is_disjoint(&other.atoms_neg));
+
+        // The atoms can be compared using the symmetric difference.
+        let mut pos = self.atoms_pos.symmetric_difference(&other.atoms_pos);
+        let mut neg = self.atoms_neg.symmetric_difference(&other.atoms_neg);
+
+        // We need both iterators to contain exactly one and exactly the same element.
+        if let (Some(i), Some(j)) = (pos.next(), neg.next()) {
+            if i == j
+                && pos.next().is_none()
+                && neg.next().is_none()
+                && self.diamond_disjuncts == other.diamond_disjuncts
+                && self.box_disjuncts == other.box_disjuncts
+                && self.and_disjuncts == other.and_disjuncts
+            {
+                return Some(*i);
+            }
+        }
+        None
     }
 }
 
@@ -561,70 +566,40 @@ impl NNF_Conj {
             NNF_precise::NnfDia(phi) => {
                 if *phi == NNF_precise::Bot {
                     return None;
+                } else if *phi == NNF_precise::Top && !self.diamond_conjuncts.is_empty() {
+                    // If there are other `dc` than `Top`, then we can omit the `Top`
+                    return Some(self);
                 }
+                // If there are other `dc` than `Top`, then we can omit the `Top`
+                self.diamond_conjuncts.remove(&NNF_precise::Top);
                 self.diamond_conjuncts.insert(*phi);
                 Some(self)
             }
-            NNF_precise::Or(disj) => {
+            NNF_precise::Or(mut disj) => {
+                // If there is another `or_conjuncts` which differs
+                // from `disj` only in the sign of an atom, then
+                // simplify using distributivity.
+                let mut atom = None;
+                self.or_conjuncts.retain(|other| {
+                    if atom.is_some() {
+                        return true;
+                    }
+                    if let Some(i) = disj.differ_by_single_atom(other) {
+                        atom = Some(i);
+                        false
+                    } else {
+                        true
+                    }
+                });
+                if let Some(i) = atom {
+                    disj.atoms_neg.remove(&i);
+                    disj.atoms_pos.remove(&i);
+                }
                 //TODO: Apply distributivity here
                 self.or_conjuncts.insert(disj);
                 Some(self)
             }
         }
-    }
-
-    /// Returns `None` if the result is contradictory.
-    fn add_nnf(mut self, nnf: NNF) -> Option<NNF_Conj> {
-        match nnf {
-            NNF::AtomPos(i) => {
-                if self.atoms_neg.contains(&i) {
-                    None
-                } else {
-                    self.atoms_pos.insert(i);
-                    Some(self)
-                }
-            }
-            NNF::AtomNeg(i) => {
-                if self.atoms_pos.contains(&i) {
-                    None
-                } else {
-                    self.atoms_neg.insert(i);
-                    Some(self)
-                }
-            }
-            NNF::Bot => None,
-            NNF::Top => Some(self),
-            NNF::And(conjuncts) => {
-                let mut conj = self;
-                for conjunct in conjuncts.into_iter() {
-                    conj = conj.add_nnf(conjunct)?;
-                }
-                Some(conj)
-            }
-            NNF::NnfBox(phi) => {
-                self.boxed_conjuncts = self.boxed_conjuncts.add_nnf(*phi);
-                Some(self)
-            }
-            NNF::NnfDia(phi) => {
-                self.diamond_conjuncts.insert(NNF_precise::from_nnf(*phi));
-                Some(self)
-            }
-            NNF::Or(disjuncts) => {
-                if let Some(disj) = NNF_Disj::from_nnf_vec(disjuncts) {
-                    self.or_conjuncts.insert(disj);
-                }
-                // otherwise `disj` was valid and thus can be removed from the conjunction
-                Some(self)
-            }
-        }
-    }
-
-    fn from_nnf_vec(conjuncts: Vec<NNF>) -> Option<NNF_Conj> {
-        let mut conj = NNF_Conj::new_empty();
-        for conjunct in conjuncts.into_iter() {
-            conj = conj.add_nnf(conjunct)?;
-        }
-        Some(conj)
     }
 
     fn into_nnf(self) -> NNF {
@@ -758,6 +733,32 @@ impl NNF_Conj {
             return NNF_precise::NnfBox(Box::new(NNF_precise::Bot));
         }
         NNF_precise::And(self)
+    }
+
+    /// Returns `Some(i)` iff `self` and `other` only differ in
+    /// exactly the sign of the atom `i`.  Otherwise returns `None`.
+    fn differ_by_single_atom(&self, other: &NNF_Conj) -> Option<NnfAtom> {
+        // For the below to work, we need the `atoms_pos` and `atoms_neg` to be disjoint.
+        assert!(self.atoms_pos.is_disjoint(&self.atoms_neg));
+        assert!(other.atoms_pos.is_disjoint(&other.atoms_neg));
+
+        // The atoms can be compared using the symmetric difference.
+        let mut pos = self.atoms_pos.symmetric_difference(&other.atoms_pos);
+        let mut neg = self.atoms_neg.symmetric_difference(&other.atoms_neg);
+
+        // We need both iterators to contain exactly one and exactly the same element.
+        if let (Some(i), Some(j)) = (pos.next(), neg.next()) {
+            if i == j
+                && pos.next().is_none()
+                && neg.next().is_none()
+                && self.boxed_conjuncts == other.boxed_conjuncts
+                && self.diamond_conjuncts == other.diamond_conjuncts
+                && self.or_conjuncts == other.or_conjuncts
+            {
+                return Some(*i);
+            }
+        }
+        None
     }
 }
 
@@ -977,4 +978,38 @@ proptest! {
     assert!(NNF::equiv_dec(&a, &a));
     assert!(!NNF::equiv_dec(&a, &a.neg()));
     }
+}
+
+extern crate test;
+#[allow(unused_imports)]
+use test::Bencher;
+
+#[bench]
+fn bench_simpl_fast(b: &mut Bencher) {
+    b.iter(|| {
+        crate::fineform_correct::FineFormIter::new(5)
+            .take(200)
+            .map(NNF::simpl)
+            .for_each(drop);
+    });
+}
+
+#[bench]
+fn bench_simpl_slow(b: &mut Bencher) {
+    b.iter(|| {
+        crate::fineform_correct::FineFormIter::new(5)
+            .take(200)
+            .map(NNF::simpl_slow)
+            .for_each(drop);
+    });
+}
+
+#[bench]
+fn bench_simpl_new(b: &mut Bencher) {
+    b.iter(|| {
+        crate::fineform_correct::FineFormIter::new(5)
+            .take(200)
+            .map(NNF::simpl_new)
+            .for_each(drop);
+    });
 }

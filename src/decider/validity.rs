@@ -88,17 +88,26 @@ fn ps_step(mut ps: PS) -> PSstepResult {
 }
 
 fn ps_into_psb(ps: PS) -> Vec<PSB> {
-    match ps_step(ps) {
-        PSstepResult::Waiting(psw_vec) => {
-            let mut output = Vec::with_capacity(psw_vec.len());
-            for psw in psw_vec {
-                if let Some(ps) = psw.into_ps() {
-                    output.append(&mut ps_into_psb(ps));
+    let mut psb_vec: Vec<PSB> = Vec::new();
+    let mut waiting_stack: Vec<PS> = vec![ps];
+
+    loop {
+        if let Some(ps) = waiting_stack.pop() {
+            match ps_step(ps) {
+                PSstepResult::Waiting(psw_vec) => {
+                    for psw in psw_vec {
+                        if let Some(ps) = psw.into_ps() {
+                            waiting_stack.push(ps);
+                        }
+                    }
+                }
+                PSstepResult::Next(psb) => {
+                    psb_vec.push(psb);
                 }
             }
-            output
+        } else {
+            return psb_vec;
         }
-        PSstepResult::Next(psi) => vec![psi],
     }
 }
 
