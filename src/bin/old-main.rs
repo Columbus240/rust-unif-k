@@ -278,7 +278,7 @@ fn main() {
     let mut decidable: usize = 0;
     let mut undecidable: usize = 0;
     for (i, nnf) in FineFormIter::new(1).enumerate() {
-        let nnf_simpl = nnf.clone().simpl_slow();
+        let nnf_simpl = nnf.clone().simpl();
         let nnf_unif = nnf.clone().check_unifiable();
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {
@@ -298,7 +298,7 @@ fn main() {
 
     #[allow(dead_code)]
     fn check_unifiability_simpl(nnf: NNF) {
-        let nnf_simpl = nnf.clone().simpl_slow();
+        let nnf_simpl = nnf.clone().simpl();
         let nnf_unif = nnf.clone().check_unifiable();
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {

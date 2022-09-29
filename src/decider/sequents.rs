@@ -98,7 +98,7 @@ impl PSW {
     /// Convert this sequent to an equivalent `NNF`.
     pub fn to_nnf(&self) -> NNF {
         let (l, r) = self.to_nnf_lr();
-        NNF::impli(l, r).simpl_slow()
+        NNF::impli(l, r).simpl()
     }
 
     pub fn display_beautiful(&self) -> PSWDisplayBeautiful {
@@ -113,7 +113,7 @@ pub struct PSIDisplayBeautiful<'a> {
 impl<'a> std::fmt::Display for PSIDisplayBeautiful<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let (left, right) = self.psi.to_nnf_lr();
-        let (left, right) = (left.simpl_slow(), right.simpl_slow());
+        let (left, right) = (left.simpl(), right.simpl());
         write!(
             f,
             "{}⇒{}",
@@ -236,7 +236,7 @@ impl PSI {
 
     pub fn to_nnf(&self) -> NNF {
         let (l, r) = self.to_nnf_lr();
-        NNF::impli(l, r).simpl_slow()
+        NNF::impli(l, r).simpl()
     }
 
     pub fn is_empty(&self) -> bool {
