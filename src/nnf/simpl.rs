@@ -533,6 +533,89 @@ impl NnfDisj {
         }
         None
     }
+
+    /// If `self` and `other` are of the form
+    /// `([]p \/ A)` and `(<>~p \/ A)` then return `true` and change `self` into `A`.
+    /// Otherwise return `false` and do nothing.
+    fn differ_by_negated_bd(&mut self, other: &NnfDisj) -> bool {
+        // First ensure that all other things are equal.
+        if self.atoms_pos != other.atoms_pos
+            || self.atoms_neg != other.atoms_neg
+            || self.and_disjuncts != other.and_disjuncts
+        {
+            return false;
+        }
+
+        // The symmetric difference of `box_disjuncts` must contain exactly one element.
+        let mut bd_diff = self
+            .box_disjuncts
+            .symmetric_difference(&other.box_disjuncts);
+
+        let bd_diff = {
+            if let Some(bd) = bd_diff.next() {
+                if bd_diff.next().is_none() {
+                    bd
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        };
+
+        // The `NnfDisj` which contains `bd_diff` must have
+        // `DiaDisjuncts::None` while the other must have the negation
+        // of `bd_diff` as `DiaDisjuncts`
+
+        if self.box_disjuncts.contains(bd_diff) {
+            if self.diamond_disjuncts != DiaDisjuncts::None {
+                return false;
+            }
+
+            // `self` is ok. check `other` now.
+            if *bd_diff == NnfPrecise::Bot {
+                if other.diamond_disjuncts == DiaDisjuncts::Top {
+                    // Found a match.
+                    self.box_disjuncts.remove(&bd_diff.clone());
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            if let DiaDisjuncts::Some(dd) = &other.diamond_disjuncts {
+                if bd_diff.clone().into_nnf().neg() == dd.clone().into_nnf() {
+                    // Found a match.
+                    self.box_disjuncts.remove(&bd_diff.clone());
+                    return true;
+                }
+            }
+        } else {
+            if other.diamond_disjuncts != DiaDisjuncts::None {
+                return false;
+            }
+
+            // `other` is ok. check `self` now.
+            if *bd_diff == NnfPrecise::Bot {
+                if self.diamond_disjuncts == DiaDisjuncts::Top {
+                    // Found a match.
+                    self.diamond_disjuncts = DiaDisjuncts::None;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            if let DiaDisjuncts::Some(dd) = &self.diamond_disjuncts {
+                if bd_diff.clone().into_nnf().neg() == dd.clone().into_nnf() {
+                    // Found a match.
+                    self.diamond_disjuncts = DiaDisjuncts::None;
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 impl NnfConj {
@@ -606,6 +689,14 @@ impl NnfConj {
                 //WARNING: It is possible that repeated simplifications are possible,
                 //using this rule. But the current algorithm stops after one application.
                 //This is only a "problem" in the multi-variable case.
+
+                // It is possible for `([]p \/ A) /\ (<>~p \/ A) /\ B` to appear.
+                // Replace this by `A /\ B`.
+                // i.e. the `diamond_disjunct` of one disjunction is
+                // the negation of one of the `box_disjuncts` of the other disjunction.
+                // Note that `differ_by_negated_bd` changes `disj` as necessary.
+                self.or_conjuncts
+                    .retain(|other| !disj.differ_by_negated_bd(other));
 
                 self.or_conjuncts.insert(disj);
                 Some(self)
