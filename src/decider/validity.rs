@@ -141,16 +141,12 @@ fn ps_compute_validity(ps: PS) -> bool {
     ps_into_psb(ps)
         .into_par_iter()
         //.into_iter()
-        //.map(|psi| psi.is_valid())
         .all(psb_compute_validity)
-    //            .reduce(|| true, |a, b| a && b)
 }
 
 fn psb_compute_validity(psb: PSB) -> bool {
     psb_step(psb)
         .into_par_iter()
         //.into_iter()
-        //.map(|psi| psi.is_valid())
         .any(psw_compute_validity)
-    //.reduce(|| false, |a, b| a || b)
 }

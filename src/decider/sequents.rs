@@ -1164,7 +1164,6 @@ proptest! {
     ps_simpl.process_easy_conjs();
     let ps : PSW = ps.into();
     let ps_simpl: PSW = ps_simpl.into();
-    println!("{} to {}", ps.display_beautiful(), ps_simpl.display_beautiful());
     assert!(NNF::equiv_dec(&ps.to_nnf(), &ps_simpl.to_nnf()));
     }
 }

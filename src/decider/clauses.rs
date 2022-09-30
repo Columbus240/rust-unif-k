@@ -1586,8 +1586,8 @@ impl ClauseSet {
             }
         }
 
-        const FIXED_UNIFIERS_TO_CHECK: [NNF; 2] = [NNF::Top, NNF::Bot];
-        //const FIXED_UNIFIERS_TO_CHECK: [NNF; 0] = [];
+        //const FIXED_UNIFIERS_TO_CHECK: [NNF; 2] = [NNF::Top, NNF::Bot];
+        const FIXED_UNIFIERS_TO_CHECK: [NNF; 0] = [];
 
         for clause in self.irreducibles.iter() {
             match clause.simple_check_unifiability() {

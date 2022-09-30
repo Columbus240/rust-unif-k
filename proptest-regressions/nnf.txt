@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc 57a59e29a4e6198bd0fd88b123de1d16bfd69c4c73c8f3b1fdb849d7eb74fe02 # shrinks to a = Or({NnfDia(Top), NnfDia(NnfBox(Top))})
 cc 8152fb31434f6250fe9c161394fd38075d3da10fff8b98912f0cae6cd966d00a # shrinks to a = And({AtomPos(0), Bot})
+cc b91f4312b15873414f31f42fb6c2e550a0ec68f18e17cac644f001b616afe753 # shrinks to a = NnfBox(And([AtomPos(0)]))

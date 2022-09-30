@@ -227,10 +227,24 @@ fn find_non_decidables(num_variables: u8) {
 
 #[allow(unreachable_code)]
 fn main() {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(16)
-        .build_global()
-        .unwrap();
+    // find the unifiers of the "anti-jerabek formula" p⇒⌷~p
+    //let formula = NNF::impli(NNF::AndNNF::AtomPos(0), NNF::boxx(NNF::AtomNeg(0)));
+
+    let formula = NNF::impli(
+        NNF::And(vec![NNF::AtomPos(0), NNF::boxx(NNF::AtomPos(0))]),
+        NNF::boxx(NNF::Bot),
+    );
+    let formula = formula.simpl();
+    println!("formula: {}", formula.display_beautiful());
+    for (ff, unif) in generator::fineform::enumerate_unifiers(4).into_iter() {
+        //for unif in FineFormIter::new(0) {
+        let unif = unif.simpl();
+        let subst = formula.substitute_all(&unif);
+        if subst.is_valid() {
+            println!("{}", unif.display_beautiful());
+        }
+    }
+    return;
 
     /*
     let mut i = 0;
@@ -281,13 +295,18 @@ fn main() {
         let nnf_simpl = nnf.clone().simpl();
         let nnf_unif = nnf.clone().check_unifiable();
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
+        //println!("formula: {}", nnf.display_beautiful());
         match (nnf_unif, nnf_simpl_unif) {
             (Ok(b0), Ok(b1)) => {
                 decidable += 1;
                 assert_eq!(b0, b1);
                 println!("index {} unifiable: {}", i, b0);
             }
-            (Err(e), Ok(b1)) => panic!("{} should be {}", e.display_beautiful(), b1),
+            (Err(e), Ok(b1)) => {
+                println!("simplification makes index {} solvable to {}", i, b1);
+                println!("stuck at: {}", e.display_beautiful());
+                //panic!("index {}, {} should be {}", i, e.display_beautiful(), b1)
+            }
             (_, Err(e)) => {
                 undecidable += 1;
                 println!("index {} gets stuck at:\n{}", i, e.display_beautiful())

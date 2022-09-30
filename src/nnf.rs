@@ -1,5 +1,3 @@
-use rayon::prelude::*;
-
 use std::collections::{BTreeMap, BTreeSet};
 
 mod display;
