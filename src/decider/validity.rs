@@ -1,5 +1,3 @@
-//TODO: Use the same sequents as `crate::decider::sequents`, but verify that
-//the checker doesn't change its output.
 //TODO: Use the simple validity checker for `PSB` to speed things up.
 use std::collections::btree_map::BTreeMap;
 use std::collections::btree_set::BTreeSet;

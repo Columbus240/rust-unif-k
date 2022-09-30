@@ -214,11 +214,6 @@ impl UnifCheckState {
     fn process(state: UnifCheckState) -> Result<bool, ClauseSet> {
         let state: Arc<Mutex<UnifCheckState>> = Arc::new(Mutex::new(state));
 
-        {
-            let state = state.lock().unwrap();
-            //eprintln!("start_of_loop {}", state.clause_set.display_beautiful());
-        }
-
         loop {
             {
                 let is_irred = {
@@ -238,15 +233,6 @@ impl UnifCheckState {
                 }
             }
             {
-                let state = state.lock().unwrap();
-                /*
-                        eprintln!(
-                            "simplified overall unifiability {}",
-                            state.clause_set.display_beautiful()
-                        );
-                */
-            }
-            {
                 let state_mutex = state.clone();
                 let waiting_conj_disj;
                 {
@@ -260,10 +246,6 @@ impl UnifCheckState {
                 {
                     return Ok(true);
                 }
-            }
-            {
-                let state = state.lock().unwrap();
-                //eprintln!("processed waiting {}", state.clause_set.display_beautiful());
             }
             {
                 let state_mutex = state.clone();
@@ -281,10 +263,6 @@ impl UnifCheckState {
                 }
             }
             {
-                let state = state.lock().unwrap();
-                //eprintln!("processed atoms {}", state.clause_set.display_beautiful());
-            }
-            {
                 let state_mutex = state.clone();
                 let waiting_precut;
                 {
@@ -298,10 +276,6 @@ impl UnifCheckState {
                 {
                     return Ok(true);
                 }
-            }
-            {
-                let state = state.lock().unwrap();
-                //eprintln!("processed cuts {}", state.clause_set.display_beautiful());
             }
         }
     }
@@ -342,7 +316,7 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(10000))]
     #[test]
     fn find_box_bot(nnf in crate::nnf::arb_nnf()) {
-        let nnf_simpl = nnf.clone().simpl_slow();
+        let nnf_simpl = nnf.clone().simpl();
         let nnf_unif = nnf.check_unifiable();
         let nnf_simpl_unif = nnf_simpl.check_unifiable();
         match (nnf_unif, nnf_simpl_unif) {

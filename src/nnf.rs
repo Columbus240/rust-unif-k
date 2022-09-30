@@ -37,6 +37,7 @@ impl NNF {
         }
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         match self {
             NNF::AtomPos(_) => 2,
@@ -44,11 +45,8 @@ impl NNF {
             NNF::Bot => 1,
             NNF::Top => 1,
             NNF::And(a) | NNF::Or(a) => {
-                a.par_iter()
-                    .map(NNF::len)
-                    .fold(|| 0, |acc: usize, x: usize| acc + x)
-                    .reduce(|| 0, |acc, n| acc + n)
-                    + 1
+                a.iter().map(NNF::len).sum::<usize>() + 1
+                //a.par_iter().map(NNF::len).sum::<usize>() + 1
             }
             NNF::NnfBox(a) | NNF::NnfDia(a) => a.len() + 1,
         }
@@ -60,7 +58,10 @@ impl NNF {
             NNF::AtomNeg(_) => 0,
             NNF::Bot => 0,
             NNF::Top => 0,
-            NNF::And(a) | NNF::Or(a) => a.par_iter().map(NNF::degree).max().unwrap_or(0),
+            NNF::And(a) | NNF::Or(a) => {
+                //a.par_iter().map(NNF::degree).max().unwrap_or(0)
+                a.iter().map(NNF::degree).max().unwrap_or(0)
+            }
             NNF::NnfBox(a) | NNF::NnfDia(a) => a.len() + 1,
         }
     }
@@ -69,7 +70,10 @@ impl NNF {
         match self {
             NNF::AtomPos(i) | NNF::AtomNeg(i) => *i == atom,
             NNF::Bot | NNF::Top => false,
-            NNF::And(a) | NNF::Or(a) => a.par_iter().any(|x| x.contains_atom(atom)),
+            NNF::And(a) | NNF::Or(a) => {
+                //a.par_iter().any(|x| x.contains_atom(atom))
+                a.iter().any(|x| x.contains_atom(atom))
+            }
             NNF::NnfBox(a) | NNF::NnfDia(a) => a.contains_atom(atom),
         }
     }
