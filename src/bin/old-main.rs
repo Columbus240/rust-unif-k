@@ -236,9 +236,23 @@ fn main() {
     );
     let formula = formula.simpl();
     println!("formula: {}", formula.display_beautiful());
-    for (ff, unif) in generator::fineform::enumerate_unifiers(4).into_iter() {
-        //for unif in FineFormIter::new(0) {
-        let unif = unif.simpl();
+    let input = generator::fineform::enumerate_unifiers(3);
+
+    let powerset = generator::fineform::TriplePowersetIterator::new(input.as_slice());
+
+    'a: for set in powerset.clone() {
+        let ff = set.into_ff();
+        let unif = ff.to_nnf().simpl();
+
+        // If a conjunct of the formula already is a unifier, then skip this `unif`.
+        if let NNF::And(vec) = &unif {
+            for u in vec.iter() {
+                if formula.substitute_all(u).is_valid() {
+                    continue 'a;
+                }
+            }
+        }
+
         let subst = formula.substitute_all(&unif);
         if subst.is_valid() {
             println!("{}", unif.display_beautiful());

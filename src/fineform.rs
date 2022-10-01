@@ -1,11 +1,12 @@
 //! Generate a list of unifiers
+//TODO: Turn this construction into an iterator.
 use std::cmp;
 use std::collections::BTreeSet;
 
 #[allow(unused_imports)]
 use rayon::prelude::*;
 
-use crate::nnf::{NnfAtom, NNF};
+use crate::nnf::NNF;
 
 //TODO: Rename
 #[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
@@ -29,36 +30,7 @@ impl FineForm {
         }))
     }
 
-    fn box_n_bot(n: usize) -> FineForm {
-        if n == 0 {
-            return FineForm::bot();
-        }
-        let dia_n_top = {
-            let mut dt = FineForm::Top;
-            for _ in 1..n {
-                dt = dt.dia();
-            }
-            dt
-        };
-        FineForm::Node(Box::new(FFNode {
-            dia_branch: None,
-            box_branches: {
-                let mut bb = BTreeSet::new();
-                bb.insert(dia_n_top);
-                bb
-            },
-        }))
-    }
-
-    pub fn dia(self) -> FineForm {
-        FineForm::Node(Box::new(FFNode {
-            dia_branch: Some(self),
-            box_branches: BTreeSet::new(),
-        }))
-    }
-
-    #[allow(dead_code)]
-    fn degree(&self) -> usize {
+    pub fn degree(&self) -> usize {
         if let FineForm::Node(node) = self {
             cmp::max(
                 node.dia_branch.as_ref().map_or(0, |x| x.degree() + 1),
@@ -71,8 +43,8 @@ impl FineForm {
         }
     }
 
-    #[allow(dead_code)]
-    fn len(&self) -> usize {
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
         if let FineForm::Node(node) = self {
             node.dia_branch.as_ref().map_or(0, |x| x.len() + 1)
                 + node.box_branches.iter().fold(0, |acc, x| acc + x.len() + 1)
@@ -81,7 +53,7 @@ impl FineForm {
         }
     }
 
-    fn to_nnf(&self) -> NNF {
+    pub fn to_nnf(&self) -> NNF {
         if let FineForm::Node(node) = self {
             if node.dia_branch.is_none() && node.box_branches.is_empty() {
                 return NNF::Bot;
@@ -109,17 +81,6 @@ impl FineForm {
             return NNF::Or(output);
         }
         NNF::Top
-    }
-
-    #[allow(dead_code)]
-    pub fn or(&self, other: &FineForm) -> FineForm {
-        match (self, other) {
-            (FineForm::Top, _) => FineForm::Top,
-            (_, FineForm::Top) => FineForm::Top,
-            (FineForm::Node(node0), FineForm::Node(node1)) => {
-                FineForm::Node(Box::new(node0.or(node1)))
-            }
-        }
     }
 
     // decides whether `self -> other` is valid.
@@ -185,34 +146,15 @@ fn option_bool_and(a: Option<bool>, b: Option<bool>) -> Option<bool> {
 }
 
 impl FFNode {
-    fn or(&self, other: &FFNode) -> FFNode {
-        // compute the diamond branch
-        let dia_branch = {
-            if let Some(dia0) = &self.dia_branch {
-                if let Some(dia1) = &other.dia_branch {
-                    Some(dia0.or(dia1))
-                } else {
-                    Some(dia0.clone())
-                }
-            } else {
-                other.dia_branch.clone()
-            }
-        };
-
-        FFNode {
-            dia_branch,
-            box_branches: self
-                .box_branches
-                .union(&other.box_branches)
-                .cloned()
-                .collect(),
-        }
-    }
-
     #[cfg(test)]
     fn contradictory_dec(&self) -> Option<bool> {
         #[allow(unused_variables)]
         let mut uncertain = false;
+
+        // If all branches are empty, then the formula is contradictory => not valid.
+        if self.box_branches.is_empty() && self.dia_branch.is_none() {
+            return Some(true);
+        }
 
         if let Some(dia) = &self.dia_branch {
             #[allow(unused_assignments)]
@@ -296,21 +238,15 @@ impl FFNode {
     }
 }
 
-#[derive(Clone)]
-struct FFPowerset {
-    dia_branch: Option<FineForm>,
-    box_branches: BTreeSet<FineForm>,
-}
-
-impl FFPowerset {
-    fn bot() -> FFPowerset {
-        FFPowerset {
+impl FFNode {
+    fn bot() -> FFNode {
+        FFNode {
             dia_branch: None,
             box_branches: BTreeSet::new(),
         }
     }
 
-    fn into_ff(self) -> FineForm {
+    pub fn into_ff(self) -> FineForm {
         FineForm::Node(Box::new(FFNode {
             dia_branch: self.dia_branch,
             box_branches: self.box_branches,
@@ -324,7 +260,7 @@ impl FFPowerset {
     //
     // Because we list (up to equivalence) all `FineForm`, we never
     // have to do an actual "or" operation.
-    fn try_dia_branch_or(&self, new_pos: &FineForm) -> Option<FFPowerset> {
+    fn try_dia_branch_or(&self, new_pos: &FineForm) -> Option<FFNode> {
         let new_pos_nnf = new_pos.to_nnf();
         if NNF::equiv_dec(&new_pos_nnf, &NNF::Bot) {
             return None;
@@ -341,7 +277,7 @@ impl FFPowerset {
             }
         }
 
-        Some(FFPowerset {
+        Some(FFNode {
             dia_branch: Some(new_pos.clone()),
             box_branches: self.box_branches.clone(),
         })
@@ -351,7 +287,7 @@ impl FFPowerset {
     // but if any simplification would happen, return `None`.
     // We can assume (w.l.o.g.) that neither part would simplify on
     // its own.
-    fn try_box_branch_or(&self, new_neg: &FineForm) -> Option<FFPowerset> {
+    fn try_box_branch_or(&self, new_neg: &FineForm) -> Option<FFNode> {
         let new_neg_nnf = new_neg.to_nnf();
         // if `new_neg` is bot, it will appear as []top in the
         // disjunction, so it would make the disjunction valid.
@@ -377,7 +313,7 @@ impl FFPowerset {
         }
 
         //DEFAULT:
-        Some(FFPowerset {
+        Some(FFNode {
             dia_branch: self.dia_branch.clone(),
             box_branches: {
                 let mut b = self.box_branches.clone();
@@ -392,20 +328,20 @@ impl FFPowerset {
 #[derive(Clone)]
 enum TpiState<'a> {
     Empty(&'a (FineForm, NNF)),
-    Pos(&'a (FineForm, NNF), FFPowerset),
-    Neg(&'a (FineForm, NNF), FFPowerset),
+    Pos(&'a (FineForm, NNF), FFNode),
+    Neg(&'a (FineForm, NNF), FFNode),
     NearlyDone,
     Done,
 }
 
 #[derive(Clone)]
-struct TriplePowersetIterator<'a> {
+pub struct TriplePowersetIterator<'a> {
     state: TpiState<'a>,
     prev_level: Option<Box<TriplePowersetIterator<'a>>>,
 }
 
 impl<'a> TriplePowersetIterator<'a> {
-    fn new(input: &'a [(FineForm, NNF)]) -> TriplePowersetIterator<'a> {
+    pub fn new(input: &'a [(FineForm, NNF)]) -> TriplePowersetIterator<'a> {
         if input.is_empty() {
             TriplePowersetIterator {
                 state: TpiState::NearlyDone,
@@ -421,8 +357,8 @@ impl<'a> TriplePowersetIterator<'a> {
 }
 
 impl<'a> Iterator for TriplePowersetIterator<'a> {
-    type Item = FFPowerset;
-    fn next(&mut self) -> Option<FFPowerset> {
+    type Item = FFNode;
+    fn next(&mut self) -> Option<FFNode> {
         match &mut self.state {
             TpiState::Empty(hd) => {
                 if let Some(v) = {
@@ -473,7 +409,7 @@ impl<'a> Iterator for TriplePowersetIterator<'a> {
             TpiState::NearlyDone => {
                 self.state = TpiState::Done;
                 self.prev_level = None;
-                Some(FFPowerset::bot())
+                Some(FFNode::bot())
             }
             TpiState::Done => {
                 self.prev_level = None;
