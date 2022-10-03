@@ -225,6 +225,7 @@ impl UnifCheckState {
                     // Otherwise return
                     let state: UnifCheckState =
                         Arc::try_unwrap(state).unwrap().into_inner().unwrap();
+                    //state.clause_set.unifiability_simplify_sat();
                     if let Some(b) = state.clause_set.simple_check_unifiable() {
                         return Ok(b);
                     }

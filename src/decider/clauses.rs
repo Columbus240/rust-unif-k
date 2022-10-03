@@ -589,10 +589,15 @@ impl ClauseIrred {
                 None => {}
             };
 
+            // Check for the following situation:
+            // An existing sequent has "p, Γ⇒Δ" and the new sequent has "Γ⇒p,Δ",
+            // or the other way around, or with a boxed formula instead of an atom.
+            //TODO:
+
             // Check for redundant sequents.
             // If two sequents have the same premise/conclusion but their
             // conclusions/premises are subsets of eachother, we can
-            // remove the sequent with the smaller set of
+            // remove the sequent with the larger set of
             // conclusions/premises.
 
             let mut remove_current_sequent: bool = false;
@@ -610,9 +615,11 @@ impl ClauseIrred {
                 }
             });
 
-            if !remove_current_sequent {
-                new_sequents.insert(sequent);
+            if remove_current_sequent {
+                continue;
             }
+
+            new_sequents.insert(sequent);
         }
 
         self.irreducibles = new_sequents;
@@ -1559,6 +1566,29 @@ impl ClauseSet {
             && self.irreducibles.is_empty()
             && self.waiting_atoms.is_empty()
             && self.waiting_conj_disj.is_empty()
+    }
+
+    /// Removes those clauses, whose negation is valid. I.e. those
+    /// clauses which are not satisfiable by Kripke models.
+    /// Because these are certainly not unifiable.
+    pub fn unifiability_simplify_sat(&mut self) {
+        self.cut_clauses
+            .drain_filter(|clause| {
+                Into::<ClauseIrred>::into(clause.clone())
+                    .to_nnf()
+                    .neg()
+                    .is_valid()
+            })
+            .for_each(drop);
+        self.irreducibles
+            .drain_filter(|clause| clause.to_nnf().neg().is_valid())
+            .for_each(drop);
+        self.waiting_atoms
+            .drain_filter(|clause| clause.to_nnf().neg().is_valid())
+            .for_each(drop);
+        self.waiting_conj_disj
+            .drain_filter(|clause| clause.to_nnf().neg().is_valid())
+            .for_each(drop);
     }
 
     /// Tries to check for unifiability, without making further simplifications.
