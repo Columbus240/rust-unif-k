@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc b4c0ec6a895ba02f9110f2dee7df110521a8e15e494e62158be4904ae69b973f # shrinks to a = Or([NnfBox(Top)])
+cc 82bec73edb2c59217cda95005359c2dcbdc335a72bc0d0e2c65f38533f47c14f # shrinks to a = And([NnfBox(Bot), Or([Top])])
+cc 69be3df726f116497ea7c8c2203d3b3897c4bf9de8cef8199aca248e4764d53b # shrinks to a = And([AtomPos(0)])

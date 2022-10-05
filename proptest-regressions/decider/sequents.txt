@@ -1,0 +1,11 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d5ec91a165505b70c419c1eda66e6bf6701e06c7f5c0492dff8f967646606bf1 # shrinks to psb = PSB { lb: [Bot], rb: [] }
+cc a2517cbf259e660deefdad68b3181ca70a386efe581df49b4ed091fd3cf2db79 # shrinks to psb = PSB { lb: [NnfDia(Top)], rb: [AtomPos(0)] }
+cc 66a71983ca69e534be5f0ee39dff3055e7af3115637830de3f044dc4859e34ac # shrinks to nnf = And([And([AtomPos(0)])])
+cc 50c923f7778340562c235e8822bd67ac91535049735a09fcedb6af88a51fc687 # shrinks to ps = PS { atoms: {}, lb: {}, rb: {}, ld: [], rc: [[Or([And([AtomPos(0)]), AtomNeg(0)])]] }
+cc 0d2b81c9817b3aebccae1227ddf87340ee5fddb2631d39a2674c3832bcffe347 # shrinks to ps = PS { atoms: {0: Left}, lb: {}, rb: {}, ld: [], rc: [[Or([Or([AtomPos(0)])])]] }

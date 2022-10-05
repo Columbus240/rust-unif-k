@@ -1,0 +1,15 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 87ad24dc453931f9a48e30ea278804ee5377f6d8ceeef4a918202d70af5a7065 # shrinks to nnf = Or([And([Bot, AtomPos(0)]), NnfBox(Bot)])
+cc ff62037a8746251f9562fc0143b7e2e21dfbc88edf3ad652b9b89c2dca07d75f # shrinks to nnf = Or([And([NnfBox(Bot), Bot]), NnfBox(AtomPos(0)), NnfBox(Top)])
+cc 3169eb346ac64421ff5e7a2a2bd39fdd8d5bf8c2a3b773f3a730cf54929399e1 # shrinks to nnf = And([And([AtomPos(0)]), NnfDia(Bot)])
+cc f08eb49df328ff64225537d6a91fa775ec518ad6cf16f39cce2947f948913dad # shrinks to nnf = Or([NnfBox(AtomPos(1)), NnfDia(Top), And([AtomNeg(0), Bot]), And([Bot, And([AtomPos(0)])])])
+cc 71125a9fd1175881f223c6fa2409dc2d0d77be51cb36b83f6619b06bcae6c6e9 # shrinks to nnf = Or([NnfBox(Bot), And([AtomPos(0), AtomNeg(0)])])
+cc f9f0a8391bcf880fb7af8c62b5de7fc6ff2dd9294cc2a9629aa5d5faaa4f838c # shrinks to nnf = Or([NnfBox(Or([AtomPos(0), AtomNeg(0)])), And([And([AtomNeg(0), AtomPos(0)])])])
+cc dfbc4ab51d36e1de0b3806cf68d51e6d7cf0ea13bc52545239b2cbadebf872a3 # shrinks to nnf = And([NnfDia(Bot), AtomPos(0)])
+cc 600fecdf2facdfc9c09219f453564406578adf5e3a57908827f02e429d412c40 # shrinks to nnf = Or([NnfBox(AtomPos(0)), And([Bot, And([Bot, AtomNeg(0)])])])
+cc a8a9665f505e30566cd59ecaaa47f71097000e05ac6815fc75bdbb6f4a4e6dfe # shrinks to nnf = NnfBox(And([NnfBox(Top)]))
