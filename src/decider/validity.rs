@@ -49,6 +49,7 @@ enum PSstepResult {
 }
 
 fn ps_step(mut ps: PS) -> PSstepResult {
+    ps.process_easy_conjs();
     if let Some(disjuncts) = ps.ld.pop() {
         let mut new_psw = Vec::with_capacity(disjuncts.len());
         for disj in disjuncts.into_iter() {
@@ -149,4 +150,18 @@ fn psb_compute_validity(psb: PSB) -> bool {
         .into_par_iter()
         //.into_iter()
         .any(psw_compute_validity)
+}
+
+extern crate test;
+#[allow(unused_imports)]
+use test::Bencher;
+
+#[bench]
+fn bench_is_valid(b: &mut Bencher) {
+    b.iter(|| {
+        crate::fineform_correct::FineFormIter::new(5)
+            .take(200)
+            .map(|phi| phi.is_valid())
+            .for_each(drop);
+    });
 }
