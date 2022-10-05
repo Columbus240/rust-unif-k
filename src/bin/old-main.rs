@@ -227,39 +227,6 @@ fn find_non_decidables(num_variables: u8) {
 
 #[allow(unreachable_code)]
 fn main() {
-    // find the unifiers of the "anti-jerabek formula" p⇒⌷~p
-    //let formula = NNF::impli(NNF::AndNNF::AtomPos(0), NNF::boxx(NNF::AtomNeg(0)));
-
-    let formula = NNF::impli(
-        NNF::And(vec![NNF::AtomPos(0), NNF::boxx(NNF::AtomPos(0))]),
-        NNF::boxx(NNF::Bot),
-    );
-    let formula = formula.simpl();
-    println!("formula: {}", formula.display_beautiful());
-    let input = generator::fineform::enumerate_unifiers(3);
-
-    let powerset = generator::fineform::TriplePowersetIterator::new(input.as_slice());
-
-    'a: for set in powerset.clone() {
-        let ff = set.into_ff();
-        let unif = ff.to_nnf().simpl();
-
-        // If a conjunct of the formula already is a unifier, then skip this `unif`.
-        if let NNF::And(vec) = &unif {
-            for u in vec.iter() {
-                if formula.substitute_all(u).is_valid() {
-                    continue 'a;
-                }
-            }
-        }
-
-        let subst = formula.substitute_all(&unif);
-        if subst.is_valid() {
-            println!("{}", unif.display_beautiful());
-        }
-    }
-    return;
-
     /*
     let mut i = 0;
     loop {
