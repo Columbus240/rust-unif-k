@@ -819,7 +819,16 @@ impl PS {
                 rw: conjuncts,
             };
             if let Some(mut ps) = new_psw.into_ps() {
-                self.atoms.append(&mut ps.atoms);
+                for (atom, dir) in ps.atoms.into_iter() {
+                    if let Some(prev_dir) = self.atoms.insert(atom, dir) {
+                        if dir != prev_dir {
+                            // There is an atom on the left and on the right.
+                            // Therefore this sequent is valid.
+                            *self = PS::new_valid();
+                            return;
+                        }
+                    }
+                }
                 self.lb.append(&mut ps.lb);
                 self.rb.append(&mut ps.rb);
                 self.ld.append(&mut ps.ld);
@@ -863,7 +872,16 @@ impl PS {
                 rw: Vec::new(),
             };
             if let Some(mut ps) = new_psw.into_ps() {
-                self.atoms.append(&mut ps.atoms);
+                for (atom, dir) in ps.atoms.into_iter() {
+                    if let Some(prev_dir) = self.atoms.insert(atom, dir) {
+                        if dir != prev_dir {
+                            // There is an atom on the left and on the right.
+                            // Therefore this sequent is valid.
+                            *self = PS::new_valid();
+                            return;
+                        }
+                    }
+                }
                 self.lb.append(&mut ps.lb);
                 self.rb.append(&mut ps.rb);
                 self.ld.append(&mut ps.ld);

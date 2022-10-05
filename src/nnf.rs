@@ -60,7 +60,7 @@ impl NNF {
                 //a.par_iter().map(NNF::degree).max().unwrap_or(0)
                 a.iter().map(NNF::degree).max().unwrap_or(0)
             }
-            NNF::NnfBox(a) | NNF::NnfDia(a) => a.len() + 1,
+            NNF::NnfBox(a) | NNF::NnfDia(a) => a.degree() + 1,
         }
     }
 
