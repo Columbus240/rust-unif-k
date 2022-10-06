@@ -146,16 +146,20 @@ impl NNF {
                 for conjunct in conjuncts.iter_mut() {
                     *conjunct = conjunct.clone().substitute_top_bot(subst_top, subst_bot);
                 }
-                NNF::And(conjuncts)
+                NNF::And(conjuncts).simpl()
             }
             NNF::Or(mut disjuncts) => {
                 for disjunct in disjuncts.iter_mut() {
                     *disjunct = disjunct.clone().substitute_top_bot(subst_top, subst_bot);
                 }
-                NNF::Or(disjuncts)
+                NNF::Or(disjuncts).simpl()
             }
-            NNF::NnfBox(phi) => NNF::NnfBox(Box::new(phi.substitute_top_bot(subst_top, subst_bot))),
-            NNF::NnfDia(phi) => NNF::NnfDia(Box::new(phi.substitute_top_bot(subst_top, subst_bot))),
+            NNF::NnfBox(phi) => {
+                NNF::NnfBox(Box::new(phi.substitute_top_bot(subst_top, subst_bot))).simpl()
+            }
+            NNF::NnfDia(phi) => {
+                NNF::NnfDia(Box::new(phi.substitute_top_bot(subst_top, subst_bot))).simpl()
+            }
         }
     }
 

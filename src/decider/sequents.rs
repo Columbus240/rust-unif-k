@@ -417,6 +417,13 @@ impl PSI {
             .map(|phi| phi.substitute_top_bot(subst_top, subst_bot).simpl())
             .collect();
         // and simplify the boxed formulae
+
+        self.lb.remove(&NNF::Top);
+
+        if self.rb.contains(&NNF::Top) {
+            return None;
+        }
+
         Some(self)
     }
     /*
@@ -512,6 +519,10 @@ impl From<PSI> for PSW {
 
 impl PSW {
     fn into_ps_step(mut self) -> Option<PSW> {
+        if self.rb.contains(&NNF::Top) {
+            return None;
+        }
+
         let mut new_left_waiting = Vec::with_capacity(self.lw.len());
         for left_waiting in self.lw.into_iter() {
             match left_waiting {
@@ -548,10 +559,36 @@ impl PSW {
                     }
                 }
                 NNF::NnfBox(phi) => {
+                    // If `lb` already contains `Bot` then do not insert the formula,
+                    if self.lb.contains(&NNF::Bot) {
+                        continue;
+                    }
+                    if self.rb.contains(&phi) {
+                        // There is already a right box of the same value.
+                        // So the sequent becomes valid.
+                        return None;
+                    }
                     self.lb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.rb.insert(phi.neg());
+                    let phi_neg = phi.neg();
+                    if self.lb.contains(&phi_neg) {
+                        // There is already a left box of the same value.
+                        // So the sequent becomes valid.
+                        return None;
+                    }
+                    if phi_neg == NNF::Bot && !self.rb.is_empty() {
+                        // If there are other boxed formulae on the
+                        // right, then adding box bottom on the right
+                        // does not change equivalence.
+                        continue;
+                    }
+                    if phi_neg == NNF::Top {
+                        // We are adding box-top on the right, i.e. top on the right.
+                        // This makes the sequent valid.
+                        return None;
+                    }
+                    self.rb.insert(phi_neg);
                 }
             }
         }
@@ -592,10 +629,28 @@ impl PSW {
                     new_right_waiting.append(&mut disjuncts);
                 }
                 NNF::NnfBox(phi) => {
+                    if self.lb.contains(&phi) {
+                        return None;
+                    }
+                    if *phi == NNF::Bot && !self.rb.is_empty() {
+                        // If there are other boxed formulae on the
+                        // right, then adding box bottom on the right
+                        // does not change equivalence.
+                        continue;
+                    }
+                    if *phi == NNF::Top {
+                        // We are adding box-top on the right, i.e. top on the right.
+                        // This makes the sequent valid.
+                        return None;
+                    }
                     self.rb.insert(*phi);
                 }
                 NNF::NnfDia(phi) => {
-                    self.lb.insert(phi.neg());
+                    let phi_neg = phi.neg();
+                    if self.rb.contains(&phi_neg) {
+                        return None;
+                    }
+                    self.lb.insert(phi_neg);
                 }
             }
         }
@@ -985,6 +1040,16 @@ impl PSB {
             .into_iter()
             .map(|box_right| box_right.substitute_top_bot(subst_top, subst_bot))
             .collect();
+
+        self.lb.remove(&NNF::Top);
+
+        if self.rb.contains(&NNF::Top) {
+            return None;
+        }
+
+        if !self.lb.is_disjoint(&self.rb) {
+            return None;
+        }
 
         // and simplify the boxed formulae
         Some(self)
