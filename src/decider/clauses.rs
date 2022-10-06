@@ -95,7 +95,8 @@ impl ClauseWaiting {
         }
     }
 
-    /// Returns `Some(false)` if the clause contains an empty sequent.
+    /// Returns `Some(false)` if the clause contains an empty sequent,
+    /// or a variable-free sequent which is not valid.
     /// Returns `Some(true)` if the clause is empty
     /// Returns `None` otherwise
     fn simple_check_validity(&self) -> Option<bool> {
@@ -107,8 +108,8 @@ impl ClauseWaiting {
                 return Some(false);
             }
         }
-        for psi in self.atom_sequents.iter() {
-            if psi.is_empty() {
+        for psb in self.atom_sequents.iter() {
+            if psb.is_varfree() && !psb.to_nnf().is_valid() {
                 return Some(false);
             }
         }
@@ -120,36 +121,71 @@ impl ClauseWaiting {
         None
     }
 
+    fn insert_psb(&mut self, psb: PSB) {
+        self.atom_sequents.insert(psb);
+    }
+
+    fn insert_psi(&mut self, psi: PSI) {
+        // Check for redundant sequents.
+        // If two sequents have the same premise/conclusion but their
+        // conclusions/premises are subsets of eachother, we can
+        // remove the sequent with the larger set of
+        // conclusions/premises.
+
+        let mut remove_current_sequent: bool = false;
+
+        self.irreducibles.drain_filter(|other_sequent| {
+            // return true, if `other_sequent` is the larger sequent to remove it.
+            // return false otherwise to keep that `other_sequent` in the set.
+            match PSI::check_subset(other_sequent, &psi) {
+                Some(LeftRight::Left) => {
+                    remove_current_sequent = true;
+                    false
+                }
+                Some(LeftRight::Right) => true,
+                None => false,
+            }
+        });
+
+        if remove_current_sequent {
+            return;
+        }
+
+        self.irreducibles.insert(psi);
+    }
+
+    fn insert_ps(&mut self, ps: PS) {
+        self.conj_disj_sequents.insert(ps);
+    }
+
     pub fn process_easy_conjs(&mut self) {
         let cd_sequents = std::mem::take(&mut self.conj_disj_sequents);
         for mut sequent in cd_sequents.into_iter() {
             sequent.process_easy_conjs();
-            self.conj_disj_sequents.insert(sequent);
+            self.insert_ps(sequent);
         }
     }
 
     /// Only processes the `atom_sequents` which have at most a single boxed term on the right.
     /// This way we can avoid doing work twice in all branches.
     pub fn process_easy_boxes(mut self) -> Self {
-        let mut hard_atoms = BTreeSet::new();
-        let mut waiting_atoms: Vec<_> = self.atom_sequents.into_iter().collect();
+        let mut waiting_atoms: BTreeSet<PSB> = std::mem::take(&mut self.atom_sequents);
 
-        while let Some(sequent) = waiting_atoms.pop() {
+        while let Some(sequent) = waiting_atoms.pop_first() {
             match sequent.step_if_easy() {
                 PsbEasyResult::InValid => return ClauseWaiting::new_contradictory(),
                 PsbEasyResult::Hard(sequent) => {
-                    hard_atoms.insert(sequent);
+                    self.insert_psb(sequent);
                 }
                 PsbEasyResult::Psi(psi) => {
-                    self.irreducibles.insert(psi);
+                    self.insert_psi(psi);
                 }
                 PsbEasyResult::Ps(ps) => {
-                    self.conj_disj_sequents.insert(ps);
+                    self.insert_ps(ps);
                 }
                 PsbEasyResult::Valid => {}
             }
         }
-        self.atom_sequents = hard_atoms;
         self
     }
 
@@ -161,12 +197,16 @@ impl ClauseWaiting {
         for ps in old_ps_vec.into_iter() {
             match ps.process_conjs_step() {
                 PSConjsResult::Boxes(psb) => {
-                    self.atom_sequents.insert(psb);
+                    self.insert_psb(psb);
                 }
                 PSConjsResult::Irred(psi) => {
-                    self.irreducibles.insert(psi);
+                    self.insert_psi(psi);
                 }
-                PSConjsResult::NewPS(mut new_ps) => self.conj_disj_sequents.append(&mut new_ps),
+                PSConjsResult::NewPS(new_ps) => {
+                    for ps in new_ps.into_iter() {
+                        self.insert_ps(ps);
+                    }
+                }
             }
         }
     }
@@ -274,6 +314,70 @@ impl ClauseWaiting {
                     };
                 }
             }
+        }
+    }
+
+    pub fn unifiability_simplify_empty(&mut self) {
+        // if there is a sequent of the form `p ⇒ ø`, then replace `p` everywhere by `⊥`.
+        // if there is a sequent of the form `ø ⇒ p`, then replace `p` everywhere by `T`.
+
+        let mut require_top: BTreeSet<NnfAtom> = BTreeSet::new();
+        let mut require_bot: BTreeSet<NnfAtom> = BTreeSet::new();
+
+        for sequent in self.irreducibles.iter() {
+            if sequent.atoms.len() == 1 && sequent.rb.is_empty() && sequent.lb.is_empty() {
+                match sequent.atoms.iter().next().unwrap() {
+                    (i, LeftRight::Left) => require_bot.insert(*i),
+                    (i, LeftRight::Right) => require_top.insert(*i),
+                };
+            }
+        }
+
+        // If the two sets are both empty, there is nothing to do.
+        if require_top.is_empty() && require_bot.is_empty() {
+            return;
+        }
+
+        // If the two sets overlap, then we are contradictory.
+        if !require_top.is_disjoint(&require_bot) {
+            *self = ClauseWaiting::new_contradictory();
+            return;
+        }
+
+        // is true, if further simplifications are possible
+        let mut simplify_further = false;
+
+        let old_irreducibles = std::mem::take(&mut self.irreducibles);
+        let old_atom_sequents = std::mem::take(&mut self.atom_sequents);
+        let old_conj_disj = std::mem::take(&mut self.conj_disj_sequents);
+
+        // Perform the substitutions. Because the substitutions are so
+        // simple, a lot of simplifications can happen now.
+        for sequent in old_irreducibles.into_iter() {
+            if let Some(seq) = sequent.substitute_top_bot(&require_top, &require_bot) {
+                if seq.atoms.len() == 1 && seq.lb.is_empty() && seq.rb.is_empty() {
+                    simplify_further = true;
+                }
+                if seq.atoms.is_empty() {
+                    self.insert_psb(seq.try_into().unwrap());
+                } else {
+                    self.irreducibles.insert(seq);
+                }
+            }
+        }
+        for psb in old_atom_sequents.into_iter() {
+            if let Some(psb) = psb.substitute_top_bot(&require_top, &require_bot) {
+                self.insert_psb(psb);
+            }
+        }
+        for ps in old_conj_disj.into_iter() {
+            if let Some(ps) = ps.substitute_top_bot(&require_top, &require_bot) {
+                self.insert_ps(ps);
+            }
+        }
+
+        if simplify_further {
+            self.unifiability_simplify_empty();
         }
     }
 }

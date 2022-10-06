@@ -76,6 +76,15 @@ impl NNF {
         }
     }
 
+    pub fn is_varfree(&self) -> bool {
+        match self {
+            NNF::AtomPos(_) | NNF::AtomNeg(_) => false,
+            NNF::Bot | NNF::Top => true,
+            NNF::And(a) | NNF::Or(a) => a.iter().all(|x| x.is_varfree()),
+            NNF::NnfBox(a) | NNF::NnfDia(a) => a.is_varfree(),
+        }
+    }
+
     #[allow(dead_code)]
     pub fn and(phi: NNF, psi: NNF) -> NNF {
         NNF::And(vec![phi, psi])

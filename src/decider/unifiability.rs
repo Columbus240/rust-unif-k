@@ -121,7 +121,8 @@ fn check_unifiable_process_conjs(
                 state.lock().unwrap().insert_clause_irred(clause_irred);
                 return false;
             }
-            Err(clause_waiting) => {
+            Err(mut clause_waiting) => {
+                clause_waiting.unifiability_simplify_empty();
                 if let Some(b) = clause_waiting.simple_check_unifiability() {
                     return b;
                 }

@@ -209,6 +209,12 @@ impl PSI {
         }
     }
 
+    pub fn is_varfree(&self) -> bool {
+        self.atoms.is_empty()
+            && self.lb.iter().all(NNF::is_varfree)
+            && self.rb.iter().all(NNF::is_varfree)
+    }
+
     /// Represent this sequent as `NNF` but keep the left and right
     /// half of the sequent separate
     pub fn to_nnf_lr(&self) -> (NNF, NNF) {
@@ -1002,6 +1008,10 @@ impl PSB {
     }
     pub fn to_nnf(&self) -> NNF {
         Into::<PSI>::into(self.clone()).to_nnf()
+    }
+
+    pub fn is_varfree(&self) -> bool {
+        self.lb.iter().all(NNF::is_varfree) && self.rb.iter().all(NNF::is_varfree)
     }
 
     pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
