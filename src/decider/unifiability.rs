@@ -284,7 +284,7 @@ impl UnifCheckState {
 }
 
 impl ClauseWaiting {
-    fn check_unifiable(self) -> Result<bool, ClauseSet> {
+    pub fn check_unifiable(self) -> Result<bool, ClauseSet> {
         UnifCheckState::process(UnifCheckState::new(self))
     }
 }
