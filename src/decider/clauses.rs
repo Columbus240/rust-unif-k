@@ -121,8 +121,21 @@ impl ClauseWaiting {
         None
     }
 
+    /// Notice that this function is not called by `process_easy_boxes`.
     fn insert_psb(&mut self, psb: PSB) {
-        self.atom_sequents.insert(psb);
+        match psb.step_if_easy() {
+            PsbEasyResult::InValid => *self = ClauseWaiting::new_contradictory(),
+            PsbEasyResult::Hard(psb) => {
+                self.atom_sequents.insert(psb);
+            }
+            PsbEasyResult::Psi(psi) => {
+                self.insert_psi(psi);
+            }
+            PsbEasyResult::Ps(ps) => {
+                self.insert_ps(ps);
+            }
+            PsbEasyResult::Valid => {}
+        }
     }
 
     fn insert_psi(&mut self, psi: PSI) {
@@ -168,6 +181,7 @@ impl ClauseWaiting {
 
     /// Only processes the `atom_sequents` which have at most a single boxed term on the right.
     /// This way we can avoid doing work twice in all branches.
+    /// Notice the similarity to `insert_psb` and that this function does not call `insert_psb`.
     pub fn process_easy_boxes(mut self) -> Self {
         let mut waiting_atoms: BTreeSet<PSB> = std::mem::take(&mut self.atom_sequents);
 
@@ -175,7 +189,7 @@ impl ClauseWaiting {
             match sequent.step_if_easy() {
                 PsbEasyResult::InValid => return ClauseWaiting::new_contradictory(),
                 PsbEasyResult::Hard(sequent) => {
-                    self.insert_psb(sequent);
+                    self.atom_sequents.insert(sequent);
                 }
                 PsbEasyResult::Psi(psi) => {
                     self.insert_psi(psi);
@@ -1792,7 +1806,7 @@ use proptest::proptest;
 
 proptest! {
     #[test]
-    fn clause_process_clause_easy_atoms(clause in arb_clause_waiting_conj()) {
+    fn clause_process_clause_easy_boxes(clause in arb_clause_waiting_conj()) {
     let clause_is_valid = clause.to_nnf().is_valid();
     let clause_simplified = clause;
     let clause_simplified = clause_simplified.process_easy_boxes();
