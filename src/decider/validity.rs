@@ -152,6 +152,51 @@ fn psb_compute_validity(psb: PSB) -> bool {
         .any(psw_compute_validity)
 }
 
+use std::process::{Command, Stdio};
+
+fn check_using_spartacus(nnf: NNF) -> bool {
+    const SPARTACUS_BIN: &str = "/home/steve/doc/uni/MA/spartacus/spartacus";
+    let c = Command::new(SPARTACUS_BIN)
+        .args([
+            "--negate",
+            &format!("--formula={}", nnf.display_spartacus()),
+        ])
+        .output()
+        .expect("failed to run spartacus");
+    if !c.status.success() {
+        panic!("spartacus had an error");
+    }
+
+    // Determine what spartacus spat out.
+    let sat: &[u8] = "satisfiable".as_bytes();
+    let unsat: &[u8] = "unsatisfiable".as_bytes();
+
+    let mut lines = c.stdout.rsplit(|b| *b == b'\n');
+    lines.next();
+    let last_line = lines.next().expect("output of spartacus too short");
+
+    if last_line == unsat {
+        return true;
+    } else if last_line == sat {
+        return false;
+    }
+    panic!("output of spartacus not understood");
+}
+
+use proptest::proptest;
+proptest! {
+#[test]
+fn test_validity_spartacus0(nnf in crate::nnf::arb_nnf()) {
+    assert_eq!(nnf.clone().is_valid(), check_using_spartacus(nnf));
+}
+}
+#[test]
+fn test_validity_spartacus1() {
+    for nnf in crate::fineform_correct::FineFormIter::new(2).take(100) {
+        assert_eq!(nnf.clone().is_valid(), check_using_spartacus(nnf));
+    }
+}
+
 extern crate test;
 #[allow(unused_imports)]
 use test::Bencher;
