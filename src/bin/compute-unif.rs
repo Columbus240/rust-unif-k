@@ -2,40 +2,45 @@
 extern crate generator;
 use generator::FineFormIter;
 
+use atomic_counter::{AtomicCounter, RelaxedCounter};
+use rayon::prelude::*;
+
 fn main() {
-    let mut dec_false: usize = 0;
-    let mut dec_true: usize = 0;
-    let mut undecidable: usize = 0;
-    for (i, nnf) in FineFormIter::new(1).enumerate().skip(8000) {
-	    if i > 8100 {
-		    return;
-	    }
-        let nnf_simpl = nnf.clone().simpl();
-        let deg = nnf_simpl.degree();
-        let nnf_simpl_unif = nnf_simpl.check_unifiable();
-        //println!("formula: {}", nnf.display_beautiful());
-        match nnf_simpl_unif {
-            Ok(b) => {
-                if b {
-                    dec_true += 1;
-                } else {
-                    dec_false += 1;
+    let dec_false = RelaxedCounter::new(0);
+    let dec_true = RelaxedCounter::new(0);
+    let undecidable = RelaxedCounter::new(0);
+    FineFormIter::new(1)
+        .enumerate()
+        .par_bridge()
+        .for_each(|(i, nnf)| {
+            let nnf_simpl = nnf.clone().simpl();
+            let deg = nnf_simpl.degree();
+            let nnf_simpl_unif = nnf_simpl.check_unifiable();
+            //println!("formula: {}", nnf.display_beautiful());
+            match nnf_simpl_unif {
+                Ok(b) => {
+                    if b {
+                        dec_true.inc();
+                    } else {
+                        dec_false.inc();
+                    }
+                    println!("index {}, degree {}, unifiable: {}", i, deg, b);
                 }
-                println!("index {}, degree {}, unifiable: {}", i, deg, b);
+                Err(e) => {
+                    undecidable.inc();
+                    println!(
+                        "index {}, degree {}, gets stuck at:\n{}",
+                        i,
+                        deg,
+                        e.display_beautiful()
+                    )
+                }
             }
-            Err(e) => {
-                undecidable += 1;
-                println!(
-                    "index {}, degree {}, gets stuck at:\n{}",
-                    i,
-                    deg,
-                    e.display_beautiful()
-                )
-            }
-        }
-        println!(
-            "stuck {} vs. dec true {} dec false {}",
-            undecidable, dec_true, dec_false
-        );
-    }
+            println!(
+                "stuck {} vs. dec true {} dec false {}",
+                undecidable.get(),
+                dec_true.get(),
+                dec_false.get()
+            );
+        });
 }
