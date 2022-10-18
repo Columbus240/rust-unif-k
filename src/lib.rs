@@ -1,6 +1,5 @@
 #![feature(once_cell)]
 #![feature(btree_drain_filter)]
-#![feature(map_first_last)]
 #![feature(test)]
 #![feature(drain_filter)]
 
