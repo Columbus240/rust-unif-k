@@ -3,36 +3,32 @@ use generator::decider::{ClauseIrred, ClauseWaiting, LeftRight, PSI};
 use generator::NNF;
 use std::collections::{BTreeMap, BTreeSet};
 
-fn main() {
-    let psi0: PSI = PSI {
+use proptest::strategy::{Strategy, ValueTree};
+use proptest::test_runner::TestRunner;
+
+fn create_stuck_candidate(
+    Γ0: BTreeSet<NNF>,
+    Δ0: BTreeSet<NNF>,
+    Γ1: BTreeSet<NNF>,
+    Δ1: BTreeSet<NNF>,
+) -> ClauseWaiting {
+    let psi0 = PSI {
         atoms: {
             let mut map = BTreeMap::new();
             map.insert(0, LeftRight::Left);
             map
         },
-        lb: {
-            let mut set = BTreeSet::new();
-            set.insert(NNF::boxx(NNF::boxx(NNF::AtomPos(0))));
-            set
-        },
-        rb: {
-            let mut set = BTreeSet::new();
-            set.insert(NNF::boxx(NNF::bot()));
-            set
-        },
+        lb: Γ0,
+        rb: Δ0,
     };
-    let psi1: PSI = PSI {
+    let psi1 = PSI {
         atoms: {
             let mut map = BTreeMap::new();
             map.insert(0, LeftRight::Right);
             map
         },
-        lb: {
-            let mut set = BTreeSet::new();
-            set.insert(NNF::boxx(NNF::bot()));
-            set
-        },
-        rb: BTreeSet::new(),
+        lb: Γ1,
+        rb: Δ1,
     };
     let clause: ClauseWaiting = ClauseIrred {
         irreducibles: {
@@ -43,6 +39,45 @@ fn main() {
         },
     }
     .into();
+    clause
+}
+
+fn main() {
+    let mut runner = TestRunner::default();
+    let mut Γ0 = BTreeSet::new();
+    Γ0.insert(
+        generator::arb_nnf_var(1)
+            .new_tree(&mut runner)
+            .unwrap()
+            .current()
+            .simpl(),
+    );
+    let mut Δ0 = BTreeSet::new();
+    Δ0.insert(
+        generator::arb_nnf_var(1)
+            .new_tree(&mut runner)
+            .unwrap()
+            .current()
+            .simpl(),
+    );
+    let mut Γ1 = BTreeSet::new();
+    Γ1.insert(
+        generator::arb_nnf_var(1)
+            .new_tree(&mut runner)
+            .unwrap()
+            .current()
+            .simpl(),
+    );
+    let mut Δ1 = BTreeSet::new();
+    Δ1.insert(
+        generator::arb_nnf_var(1)
+            .new_tree(&mut runner)
+            .unwrap()
+            .current()
+            .simpl(),
+    );
+    let clause: ClauseWaiting = create_stuck_candidate(Γ0, Δ0, Γ1, Δ1);
+    println!("{}", clause.display_beautiful());
     println!(
         "{}",
         clause.check_unifiable().unwrap_err().display_beautiful()
