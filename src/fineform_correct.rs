@@ -94,7 +94,6 @@ impl FineFormIter {
 
     /// Returns `true` if a new level would have to start. I.e. iff `self.prev_level_powerset` is empty.
     /// Otherwise it returns `false` and adds the next "normal form" to `self.curr_level_formulae`.
-    #[allow(dead_code)]
     fn generate_next_formula_curr_level(&mut self) -> bool {
         // Only advance the `prev_level_powerset` if
         // `literals_powerset` runs out.
