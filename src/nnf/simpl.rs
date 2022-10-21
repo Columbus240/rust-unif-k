@@ -403,6 +403,8 @@ impl NnfDisj {
                     //using this rule. But the current algorithm stops at one application.
                     //This is only a "problem" in the multi-variable case.
                 }
+                self.and_disjuncts
+                    .retain(|other| !conj.differ_by_negated_dc(other));
 
                 self.and_disjuncts.insert(conj);
                 Some(self)
@@ -915,6 +917,91 @@ impl NnfConj {
             }
         }
         None
+    }
+
+    /// If `self` and `other` are of the form
+    /// `([]p /\ A)` and `(<>~p /\ A)` then return `true` and change `self` into `A`.
+    /// Otherwise return `false` and do nothing.
+    fn differ_by_negated_dc(&mut self, other: &NnfConj) -> bool {
+        // First ensure that all other things are equal.
+        if self.atoms_pos != other.atoms_pos
+            || self.atoms_neg != other.atoms_neg
+            || self.or_conjuncts != other.or_conjuncts
+        {
+            return false;
+        }
+
+        // The symmetric difference of `diamond_conjuncts` must contain exactly one element.
+        let mut dc_diff = self
+            .diamond_conjuncts
+            .symmetric_difference(&other.diamond_conjuncts);
+
+        // If the difference has exactly one element, then go on with `dc_diff` being that element.
+        // Otherwise return.
+        let dc_diff = {
+            if let Some(dc) = dc_diff.next() {
+                if dc_diff.next().is_none() {
+                    dc
+                } else {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        };
+
+        // The `NnfConj` which contains `dc_diff` must have
+        // `BoxConjuncts::None` while the other must have the negation
+        // of `dc_diff` as `BoxConjuncts`
+
+        if self.diamond_conjuncts.contains(dc_diff) {
+            if self.boxed_conjuncts != BoxConjuncts::None {
+                return false;
+            }
+
+            // `self` is ok. check `other` now.
+            if *dc_diff == NnfPrecise::Top {
+                if other.boxed_conjuncts == BoxConjuncts::Bot {
+                    // Found a match.
+                    self.diamond_conjuncts.remove(&dc_diff.clone());
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            if let BoxConjuncts::Some(bc) = &other.boxed_conjuncts {
+                if dc_diff.clone().into_nnf().neg() == bc.clone().into_nnf() {
+                    // Found a match.
+                    self.diamond_conjuncts.remove(&dc_diff.clone());
+                    return true;
+                }
+            }
+        } else {
+            if other.boxed_conjuncts != BoxConjuncts::None {
+                return false;
+            }
+
+            // `other` is ok. check `self` now.
+            if *dc_diff == NnfPrecise::Top {
+                if self.boxed_conjuncts == BoxConjuncts::Bot {
+                    // Found a match.
+                    self.boxed_conjuncts = BoxConjuncts::None;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            if let BoxConjuncts::Some(bc) = &self.boxed_conjuncts {
+                if dc_diff.clone().into_nnf().neg() == bc.clone().into_nnf() {
+                    // Found a match.
+                    self.boxed_conjuncts = BoxConjuncts::None;
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 
