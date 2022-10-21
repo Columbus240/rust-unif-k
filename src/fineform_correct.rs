@@ -7,6 +7,7 @@ use crate::nnf::*;
 
 use std::iter::Peekable;
 
+#[derive(Debug)]
 pub struct PowersetIter {
     num_bits: usize,
     state: Option<BigInt>,
@@ -59,6 +60,7 @@ impl Iterator for PowersetIter {
 
 /// Invariant: the number of bits of `prev_level_powerset` is always equal to `prev_level.len()`.
 /// Invariant: the number of bits of `literals_powerset` is always equal to `num_variables`.
+#[derive(Debug)]
 pub struct FineFormIter {
     // The number of variables to use
     num_variables: NnfAtom,
@@ -139,6 +141,7 @@ impl FineFormIter {
     }
 
     /// Returns true, if a new level started
+    #[allow(dead_code)]
     fn generate_next_formula(&mut self) -> bool {
         if self.generate_next_formula_curr_level() {
             self.prepare_next_level();
@@ -208,6 +211,7 @@ impl Iterator for FineFormIter {
 
 /// Generates a `Vec` of all formulae in fineform of modal degree at
 /// most `max_modal_degree`.
+#[allow(dead_code)]
 pub fn fineform_bounded_level(num_vars: NnfAtom, max_modal_degree: usize) -> Vec<NNF> {
     let mut ff_iter = FineFormIter::new(num_vars);
     let mut output = Vec::new();

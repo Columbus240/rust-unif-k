@@ -152,8 +152,10 @@ fn psb_compute_validity(psb: PSB) -> bool {
         .any(psw_compute_validity)
 }
 
-use std::process::{Command, Stdio};
+#[cfg(test)]
+use std::process::Command;
 
+#[cfg(test)]
 fn check_using_spartacus(nnf: NNF) -> bool {
     const SPARTACUS_BIN: &str = "/home/steve/doc/uni/MA/spartacus/spartacus";
     let c = Command::new(SPARTACUS_BIN)
