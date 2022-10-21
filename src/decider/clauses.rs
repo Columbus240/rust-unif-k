@@ -1109,7 +1109,7 @@ impl ClauseIrred {
 
         let left_atom_sequents = self.irreducibles.iter().filter_map(|psi| {
             let left_atoms = psi.left_atoms();
-            if psi.lb.is_empty() && left_atoms.len() == 1 {
+            if psi.lb.is_empty() && psi.rb.len() == 1 && left_atoms.len() == 1 {
                 Some((
                     psi,
                     *left_atoms.iter().next().unwrap(),
@@ -1121,7 +1121,7 @@ impl ClauseIrred {
         });
         let right_atom_sequents = self.irreducibles.iter().filter_map(|psi| {
             let right_atoms = psi.right_atoms();
-            if psi.rb.is_empty() && right_atoms.len() == 1 {
+            if psi.rb.is_empty() && psi.lb.len() == 1 && right_atoms.len() == 1 {
                 Some((
                     psi,
                     *right_atoms.iter().next().unwrap(),
@@ -1241,11 +1241,15 @@ impl ClauseIrred {
         };
         let clause_irred = match clause_irred.unifiability_simplify_box_p_impl_p() {
             Ok(ci) => ci,
-            Err(cw) => return Err(Err(cw)),
+            Err(cw) => {
+                return Err(Err(cw));
+            }
         };
         let mut clause_irred = match clause_irred.unifiability_simplify_equivalents() {
             Ok(ci) => ci,
-            Err(cw) => return Err(Err(cw)),
+            Err(cw) => {
+                return Err(Err(cw));
+            }
         };
         clause_irred.unifiability_simplify_p_impl_box_bot();
         clause_irred.unifiability_simplify_free_atoms();
