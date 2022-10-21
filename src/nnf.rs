@@ -251,6 +251,39 @@ impl<'a> NNF {
     }
 }
 
+use std::process::Command;
+
+impl NNF {
+    pub fn check_using_spartacus(nnf: NNF) -> bool {
+        const SPARTACUS_BIN: &str = "/home/steve/doc/uni/MA/spartacus/spartacus";
+        let c = Command::new(SPARTACUS_BIN)
+            .args([
+                "--negate",
+                &format!("--formula={}", nnf.display_spartacus()),
+            ])
+            .output()
+            .expect("failed to run spartacus");
+        if !c.status.success() {
+            panic!("spartacus had an error");
+        }
+
+        // Determine what spartacus spat out.
+        let sat: &[u8] = "satisfiable".as_bytes();
+        let unsat: &[u8] = "unsatisfiable".as_bytes();
+
+        let mut lines = c.stdout.rsplit(|b| *b == b'\n');
+        lines.next();
+        let last_line = lines.next().expect("output of spartacus too short");
+
+        if last_line == unsat {
+            return true;
+        } else if last_line == sat {
+            return false;
+        }
+        panic!("output of spartacus not understood");
+    }
+}
+
 use proptest::prelude::*;
 
 pub fn arb_nnf() -> impl Strategy<Value = NNF> {
