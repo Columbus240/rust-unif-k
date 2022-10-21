@@ -362,6 +362,7 @@ impl NnfDisj {
                 } else if *phi == NnfPrecise::Top && !self.box_disjuncts.is_empty() {
                     return None;
                 }
+
                 self.diamond_disjuncts = self.diamond_disjuncts.add_precise(*phi);
                 Some(self)
             }
@@ -405,6 +406,11 @@ impl NnfDisj {
                 }
                 self.and_disjuncts
                     .retain(|other| !conj.differ_by_negated_dc(other));
+
+                // Replace ⋄~φ ∨ (⌷φ ∧ Γ) ∨ Δ by ⋄~φ ∨ Γ ∨ Δ.
+                if self.diamond_disjuncts == conj.boxed_conjuncts.clone().neg() {
+                    conj.boxed_conjuncts = BoxConjuncts::None;
+                }
 
                 self.and_disjuncts.insert(conj);
                 Some(self)
@@ -512,6 +518,14 @@ impl NnfDisj {
             && self.and_disjuncts.is_empty()
         {
             return NnfPrecise::NnfDia(Box::new(NnfPrecise::Top));
+        }
+        if self.atoms_pos.is_empty()
+            && self.atoms_neg.is_empty()
+            && self.diamond_disjuncts == DiaDisjuncts::None
+            && self.box_disjuncts.len() == 1
+            && self.and_disjuncts.is_empty()
+        {
+            return NnfPrecise::NnfBox(Box::new(self.box_disjuncts.into_iter().next().unwrap()));
         }
         NnfPrecise::Or(self)
     }
@@ -715,6 +729,19 @@ impl NnfConj {
                 } else if *phi == NnfPrecise::Bot && !self.diamond_conjuncts.is_empty() {
                     return None;
                 }
+
+                /* The problematic thing about this rule is, that it is "asymmetric".
+                It gives "⋄top" a special role. Thus it won't interact
+                confluently with the other rules.
+                // Replace (Γ ∧ ⌷φ ∧ ⋄φ) by (Γ ∧ ⌷φ ∧ ⋄top)
+                        if self.diamond_conjuncts.contains(&phi) {
+                            self.diamond_conjuncts.remove(&phi);
+                            // If there are no other `diamond_conjuncts`, we need to add a placeholder
+                            if self.diamond_conjuncts.is_empty() {
+                                self.diamond_conjuncts.insert(NnfPrecise::Top);
+                            }
+                        }*/
+
                 self.boxed_conjuncts = self.boxed_conjuncts.add_precise(*phi);
                 Some(self)
             }
@@ -725,6 +752,7 @@ impl NnfConj {
                     // If there are other `dc` than `Top`, then we can omit the `Top`
                     return Some(self);
                 }
+
                 // If there are other `dc` than `Top`, then we can omit the `Top`
                 self.diamond_conjuncts.remove(&NnfPrecise::Top);
                 self.diamond_conjuncts.insert(*phi);
@@ -754,6 +782,11 @@ impl NnfConj {
                 // Note that `differ_by_negated_bd` changes `disj` as necessary.
                 self.or_conjuncts
                     .retain(|other| !disj.differ_by_negated_bd(other));
+
+                // Replace ⌷φ ∧ (⋄~φ ∨ Γ) ∧ Δ by ⌷φ ∧ Γ ∧ Δ.
+                if self.boxed_conjuncts == disj.diamond_disjuncts.clone().neg() {
+                    disj.diamond_disjuncts = DiaDisjuncts::None;
+                }
 
                 self.or_conjuncts.insert(disj);
                 Some(self)
@@ -889,6 +922,16 @@ impl NnfConj {
             && self.or_conjuncts.is_empty()
         {
             return NnfPrecise::NnfBox(Box::new(NnfPrecise::Bot));
+        }
+        if self.atoms_pos.is_empty()
+            && self.atoms_neg.is_empty()
+            && self.boxed_conjuncts == BoxConjuncts::None
+            && self.diamond_conjuncts.len() == 1
+            && self.or_conjuncts.is_empty()
+        {
+            return NnfPrecise::NnfDia(Box::new(
+                self.diamond_conjuncts.into_iter().next().unwrap(),
+            ));
         }
         NnfPrecise::And(self)
     }
