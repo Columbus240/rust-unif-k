@@ -32,6 +32,14 @@ impl BoxConjuncts {
         }
     }
 
+    fn neg(self) -> DiaDisjuncts {
+        match self {
+            BoxConjuncts::None => DiaDisjuncts::None,
+            BoxConjuncts::Bot => DiaDisjuncts::Top,
+            BoxConjuncts::Some(bc) => DiaDisjuncts::Some(Box::new(bc.neg())),
+        }
+    }
+
     fn simpl(self) -> Option<NnfPrecise> {
         match self {
             BoxConjuncts::None => None,
@@ -78,6 +86,14 @@ impl DiaDisjuncts {
             DiaDisjuncts::None => None,
             DiaDisjuncts::Top => Some(NNF::dia(NNF::Top)),
             DiaDisjuncts::Some(nd) => Some(NNF::dia(nd.into_nnf())),
+        }
+    }
+
+    fn neg(self) -> BoxConjuncts {
+        match self {
+            DiaDisjuncts::None => BoxConjuncts::None,
+            DiaDisjuncts::Top => BoxConjuncts::Bot,
+            DiaDisjuncts::Some(nd) => BoxConjuncts::Some(Box::new(nd.neg())),
         }
     }
 
@@ -136,6 +152,19 @@ enum NnfPrecise {
 }
 
 impl NnfPrecise {
+    fn neg(self) -> NnfPrecise {
+        match self {
+            NnfPrecise::AtomPos(i) => NnfPrecise::AtomNeg(i),
+            NnfPrecise::AtomNeg(i) => NnfPrecise::AtomPos(i),
+            NnfPrecise::Bot => NnfPrecise::Top,
+            NnfPrecise::Top => NnfPrecise::Bot,
+            NnfPrecise::NnfBox(phi) => NnfPrecise::NnfDia(Box::new(phi.neg())),
+            NnfPrecise::NnfDia(phi) => NnfPrecise::NnfBox(Box::new(phi.neg())),
+            NnfPrecise::And(phi) => NnfPrecise::Or(phi.neg()),
+            NnfPrecise::Or(phi) => NnfPrecise::And(phi.neg()),
+        }
+    }
+
     fn and(self, other: NnfPrecise) -> NnfPrecise {
         match (self, other) {
             (NnfPrecise::Bot, _) | (_, NnfPrecise::Bot) => NnfPrecise::Bot,
@@ -292,6 +321,17 @@ impl NnfDisj {
             diamond_disjuncts: DiaDisjuncts::None,
             box_disjuncts: BTreeSet::new(),
             and_disjuncts: BTreeSet::new(),
+        }
+    }
+
+    fn neg(self) -> NnfConj {
+        NnfConj {
+            atoms_pos: self.atoms_neg,
+            atoms_neg: self.atoms_pos,
+
+            boxed_conjuncts: self.diamond_disjuncts.neg(),
+            diamond_conjuncts: self.box_disjuncts.into_iter().map(|p| p.neg()).collect(),
+            or_conjuncts: self.and_disjuncts.into_iter().map(|p| p.neg()).collect(),
         }
     }
 
@@ -631,6 +671,21 @@ impl NnfConj {
         }
     }
 
+    fn neg(self) -> NnfDisj {
+        NnfDisj {
+            atoms_pos: self.atoms_neg,
+            atoms_neg: self.atoms_pos,
+
+            diamond_disjuncts: self.boxed_conjuncts.neg(),
+            box_disjuncts: self
+                .diamond_conjuncts
+                .into_iter()
+                .map(|p| p.neg())
+                .collect(),
+            and_disjuncts: self.or_conjuncts.into_iter().map(|p| p.neg()).collect(),
+        }
+    }
+
     fn add_precise(mut self, phi: NnfPrecise) -> Option<NnfConj> {
         match phi {
             NnfPrecise::AtomPos(i) => {
@@ -882,6 +937,14 @@ proptest! {
     // every formula is equivalent to itself, but not to its negation
     assert!(NNF::equiv_dec(&a, &a));
     assert!(!NNF::equiv_dec(&a, &a.neg()));
+    }
+
+    #[test]
+    fn neg_equiv(a in super::arb_nnf()) {
+    let precise = NnfPrecise::from_nnf(a.clone());
+    let double_neg = precise.clone().neg().neg();
+    assert_eq!(precise, double_neg);
+    assert!(NNF::equiv_dec(&precise.neg().into_nnf(), &a.neg()));
     }
 }
 
