@@ -1110,11 +1110,12 @@ impl ClauseIrred {
         let left_atom_sequents = self.irreducibles.iter().filter_map(|psi| {
             let left_atoms = psi.left_atoms();
             if psi.lb.is_empty() && psi.rb.len() == 1 && left_atoms.len() == 1 {
-                Some((
-                    psi,
-                    *left_atoms.iter().next().unwrap(),
-                    psi.to_nnf_lr().1.simpl(),
-                ))
+                let left_atom = *left_atoms.iter().next().unwrap();
+                let right_formula = psi.to_nnf_lr().1.simpl();
+                if right_formula.contains_atom(left_atom) {
+                    return None;
+                }
+                Some((psi, left_atom, right_formula))
             } else {
                 None
             }
@@ -1122,11 +1123,12 @@ impl ClauseIrred {
         let right_atom_sequents = self.irreducibles.iter().filter_map(|psi| {
             let right_atoms = psi.right_atoms();
             if psi.rb.is_empty() && psi.lb.len() == 1 && right_atoms.len() == 1 {
-                Some((
-                    psi,
-                    *right_atoms.iter().next().unwrap(),
-                    psi.to_nnf_lr().0.simpl(),
-                ))
+                let right_atom = *right_atoms.iter().next().unwrap();
+                let left_formula = psi.to_nnf_lr().0.simpl();
+                if left_formula.contains_atom(right_atom) {
+                    return None;
+                }
+                Some((psi, right_atom, left_formula))
             } else {
                 None
             }
