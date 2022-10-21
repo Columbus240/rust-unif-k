@@ -13,7 +13,7 @@ fn main() {
         .enumerate()
         .par_bridge()
         .for_each(|(i, nnf)| {
-            let nnf_simpl = nnf.clone().simpl();
+            let nnf_simpl = nnf.simpl();
             let deg = nnf_simpl.degree();
             let nnf_simpl_unif = nnf_simpl.check_unifiable();
             //println!("formula: {}", nnf.display_beautiful());

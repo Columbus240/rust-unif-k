@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 extern crate generator;
 use generator::decider::{ClauseIrred, ClauseWaiting, LeftRight, PSI};
 use generator::NNF;
