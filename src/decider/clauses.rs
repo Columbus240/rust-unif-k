@@ -1476,6 +1476,59 @@ proptest! {
  }
 }
 
+pub struct ClauseSetDisplayLatex<'a> {
+    clause_set: &'a ClauseSet,
+}
+
+impl<'a> std::fmt::Display for ClauseSetDisplayLatex<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut clause_separator_needed = false;
+        for clause in self.clause_set.cut_clauses.iter() {
+            if clause_separator_needed {
+                write!(f, " , ")?;
+            } else {
+                clause_separator_needed = true;
+            }
+            write!(f, " {{ ")?;
+            let mut sequent_separator_needed = false;
+            for psi in clause.irreducibles.iter() {
+                if sequent_separator_needed {
+                    write!(f, " ; ")?;
+                } else {
+                    sequent_separator_needed = true;
+                }
+                write!(f, "{}", psi.display_latex())?;
+            }
+            write!(f, " }} ")?;
+        }
+        for clause in self.clause_set.irreducibles.iter() {
+            if clause_separator_needed {
+                write!(f, " , ")?;
+            } else {
+                clause_separator_needed = true;
+            }
+            write!(f, " {{ ")?;
+            let mut sequent_separator_needed = false;
+            for psi in clause.irreducibles.iter() {
+                if sequent_separator_needed {
+                    write!(f, " ; ")?;
+                } else {
+                    sequent_separator_needed = true;
+                }
+                write!(f, "{}", psi.display_latex())?;
+            }
+            write!(f, " }} ")?;
+        }
+
+        if !self.clause_set.waiting_atoms.is_empty()
+            || !self.clause_set.waiting_conj_disj.is_empty()
+        {
+            panic!();
+        }
+        Ok(())
+    }
+}
+
 pub struct ClauseSetDisplayBeautiful<'a> {
     clause_set: &'a ClauseSet,
 }
@@ -1608,6 +1661,9 @@ pub struct ClauseSet {
 impl ClauseSet {
     pub fn display_beautiful(&self) -> ClauseSetDisplayBeautiful {
         ClauseSetDisplayBeautiful { clause_set: self }
+    }
+    pub fn display_latex(&self) -> ClauseSetDisplayLatex {
+        ClauseSetDisplayLatex { clause_set: self }
     }
     pub fn from_clause(clause: ClauseWaiting) -> ClauseSet {
         ClauseSet::from_clause_vec(vec![clause])

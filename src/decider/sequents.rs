@@ -106,6 +106,23 @@ impl PSW {
     }
 }
 
+pub struct PSIDisplayLaTeX<'a> {
+    psi: &'a PSI,
+}
+
+impl<'a> std::fmt::Display for PSIDisplayLaTeX<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (left, right) = self.psi.to_nnf_lr();
+        let (left, right) = (left.simpl(), right.simpl());
+        write!(
+            f,
+            "{}\\Rightarrow{{}}{}",
+            left.display_latex(),
+            right.display_latex()
+        )
+    }
+}
+
 pub struct PSIDisplayBeautiful<'a> {
     psi: &'a PSI,
 }
@@ -439,11 +456,11 @@ impl PSI {
 
         Some(self)
     }
-    /*
-        pub fn display_latex<'a>(&'a self) -> PSIDisplayLaTeX<'a> {
-            PSIDisplayLaTeX { psi: self }
-        }
+    pub fn display_latex<'a>(&'a self) -> PSIDisplayLaTeX<'a> {
+        PSIDisplayLaTeX { psi: self }
+    }
 
+    /*
         pub fn display_spartacus<'a>(&'a self) -> PSIDisplaySpartacus<'a> {
             PSIDisplaySpartacus { psi: self }
         }
