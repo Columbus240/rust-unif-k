@@ -227,6 +227,18 @@ fn find_non_decidables(num_variables: u8) {
 
 #[allow(unreachable_code)]
 fn main() {
+    let nnf = NNF::equiv_formula(
+        NNF::equiv_formula(NNF::AtomPos(0), NNF::boxx(NNF::AtomNeg(0))),
+        NNF::Bot,
+    );
+    println!("{}, {}", nnf.display_beautiful(), nnf.is_valid());
+    println!(
+        "{}, {}",
+        nnf.clone().simpl().display_beautiful(),
+        nnf.simpl().is_valid()
+    );
+    return;
+
     /*
     let mut i = 0;
     loop {

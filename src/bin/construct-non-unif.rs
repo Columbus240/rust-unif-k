@@ -46,42 +46,49 @@ fn create_stuck_candidate(
 
 fn main() {
     let mut runner = TestRunner::default();
-    let mut Γ0 = BTreeSet::new();
-    Γ0.insert(
-        generator::arb_nnf_var(1)
-            .new_tree(&mut runner)
-            .unwrap()
-            .current()
-            .simpl(),
-    );
-    let mut Δ0 = BTreeSet::new();
-    Δ0.insert(
-        generator::arb_nnf_var(1)
-            .new_tree(&mut runner)
-            .unwrap()
-            .current()
-            .simpl(),
-    );
-    let mut Γ1 = BTreeSet::new();
-    Γ1.insert(
-        generator::arb_nnf_var(1)
-            .new_tree(&mut runner)
-            .unwrap()
-            .current()
-            .simpl(),
-    );
-    let mut Δ1 = BTreeSet::new();
-    Δ1.insert(
-        generator::arb_nnf_var(1)
-            .new_tree(&mut runner)
-            .unwrap()
-            .current()
-            .simpl(),
-    );
-    let clause: ClauseWaiting = create_stuck_candidate(Γ0, Δ0, Γ1, Δ1);
-    println!("{}", clause.display_beautiful());
-    println!(
-        "{}",
-        clause.check_unifiable().unwrap_err().display_beautiful()
-    );
+
+    let clause_out;
+    loop {
+        let mut Γ0 = BTreeSet::new();
+        Γ0.insert(
+            generator::arb_nnf_var(1)
+                .new_tree(&mut runner)
+                .unwrap()
+                .current()
+                .simpl(),
+        );
+        let mut Δ0 = BTreeSet::new();
+        Δ0.insert(
+            generator::arb_nnf_var(1)
+                .new_tree(&mut runner)
+                .unwrap()
+                .current()
+                .simpl(),
+        );
+        let mut Γ1 = BTreeSet::new();
+        Γ1.insert(
+            generator::arb_nnf_var(1)
+                .new_tree(&mut runner)
+                .unwrap()
+                .current()
+                .simpl(),
+        );
+        let mut Δ1 = BTreeSet::new();
+        Δ1.insert(
+            generator::arb_nnf_var(1)
+                .new_tree(&mut runner)
+                .unwrap()
+                .current()
+                .simpl(),
+        );
+        let clause: ClauseWaiting = create_stuck_candidate(Γ0, Δ0, Γ1, Δ1);
+        match clause.check_unifiable() {
+            Ok(_) => continue,
+            Err(e) => {
+                clause_out = e;
+                break;
+            }
+        }
+    }
+    println!("{}", clause_out.display_beautiful());
 }
