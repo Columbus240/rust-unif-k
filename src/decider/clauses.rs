@@ -827,8 +827,8 @@ impl ClauseIrred {
                     map.insert(0, LeftRight::Left);
                     map
                 },
-                rb: BTreeSet::new(),
-                lb: {
+                lb: BTreeSet::new(),
+                rb: {
                     let mut set = BTreeSet::new();
                     set.insert(NNF::Bot);
                     set

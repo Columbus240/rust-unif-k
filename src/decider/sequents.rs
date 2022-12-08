@@ -317,6 +317,13 @@ impl PSI {
             return;
         }
 
+        if self.rb.contains(&NNF::Bot) {
+            // If there is box bot on the right and some other boxes, we can remove the box bot.
+            if self.rb.len() > 1 {
+                self.rb.remove(&NNF::Bot);
+            }
+        }
+
         for left_box in self.lb.iter() {
             for right_box in self.rb.iter() {
                 if left_box == right_box {
