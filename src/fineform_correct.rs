@@ -1,3 +1,4 @@
+//TODO: Rewrite `FineFormIter` to use `InternalFineFormIter`.
 use bitvec::prelude::*;
 use core::ops::Shr;
 use num_bigint::*;
@@ -55,6 +56,117 @@ impl Iterator for PowersetIter {
         } else {
             None
         }
+    }
+}
+
+/// Lists all the basic fine forms of a certain level.
+/// The basic fine forms of the previous level must be given as an
+/// argument, this struct does not keep track of that.
+///
+/// Invariant: the number of bits of `prev_level_powerset` is always equal to `prev_level.len()`.
+/// Invariant: the number of bits of `literals_powerset` is always equal to `num_variables`.
+#[derive(Debug)]
+struct InternalFineFormIter {
+    // The number of variables to use
+    num_variables: NnfAtom,
+    literals_powerset: PowersetIter,
+    prev_level: Vec<NNF>,
+    prev_level_powerset: Peekable<PowersetIter>,
+    curr_level_formulae: Vec<NNF>,
+}
+
+impl InternalFineFormIter {
+    pub fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> InternalFineFormIter {
+        // Allocate some space for `curr_level_formulae` by default, but
+        // not too much.
+        let prev_level_len = prev_level.len();
+        let curr_level_formulae_len =
+            (num_variables as usize) * (usize::pow(2, usize::min(prev_level_len, 16) as u32));
+        InternalFineFormIter {
+            num_variables,
+            literals_powerset: PowersetIter::new(num_variables as usize),
+            prev_level,
+            prev_level_powerset: PowersetIter::new(prev_level_len).peekable(),
+            curr_level_formulae: Vec::with_capacity(curr_level_formulae_len),
+        }
+    }
+}
+
+impl Iterator for InternalFineFormIter {
+    type Item = NNF;
+    fn next(&mut self) -> Option<NNF> {
+        // Only advance `prev_level_powerset` if `literals_powerset` runs out.
+
+        // Peek into `prev_level_powerset` to obtain instructions
+        // about the signs for the formulae of the previous level.
+        // Early return, if we are done.
+        let prev_set = self.prev_level_powerset.peek()?;
+
+        if let Some(literals_set) = self.literals_powerset.next() {
+            let mut literals_vec = Vec::with_capacity(literals_set.len() + self.prev_level.len());
+            for (i, b) in literals_set.iter().enumerate() {
+                if *b {
+                    literals_vec.push(NNF::AtomPos(i as NnfAtom));
+                } else {
+                    literals_vec.push(NNF::AtomNeg(i as NnfAtom));
+                }
+            }
+            for (b, nnf) in prev_set.iter().zip(self.prev_level.iter()) {
+                if *b {
+                    literals_vec.push(NNF::NnfDia(Box::new(nnf.clone())));
+                } else {
+                    literals_vec.push(NNF::NnfBox(Box::new(nnf.neg())));
+                }
+            }
+
+            let out: NNF = NNF::And(literals_vec).simpl();
+            self.curr_level_formulae.push(out.clone());
+            Some(out)
+        } else {
+            // All literals have been used, advance `prev_level_powerset` and
+            // prepare `literals_powerset`.
+            self.prev_level_powerset.next();
+            self.literals_powerset = PowersetIter::new(self.num_variables as usize);
+            // then return the next formula
+            self.next()
+        }
+    }
+}
+
+/// Lists all basic Fine forms
+pub struct BasicFineFormIter {
+    internal_iter: InternalFineFormIter,
+    curr_level: usize,
+}
+
+impl BasicFineFormIter {
+    pub fn new(num_variables: NnfAtom) -> BasicFineFormIter {
+        BasicFineFormIter {
+            internal_iter: InternalFineFormIter::new(num_variables, Vec::new()),
+            curr_level: 0,
+        }
+    }
+
+    pub fn get_curr_level(&self) -> usize {
+        self.curr_level
+    }
+}
+
+impl Iterator for BasicFineFormIter {
+    type Item = NNF;
+    fn next(&mut self) -> Option<NNF> {
+        // Return the next formula from the internal iterator
+        if let Some(nnf) = self.internal_iter.next() {
+            return Some(nnf);
+        }
+        // If there is no such formula, prepare the next level.
+        self.curr_level += 1;
+        let new_internal_iter = InternalFineFormIter::new(
+            self.internal_iter.num_variables,
+            std::mem::take(&mut self.internal_iter.curr_level_formulae),
+        );
+        self.internal_iter = new_internal_iter;
+        self.next()
     }
 }
 
