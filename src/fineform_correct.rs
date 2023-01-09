@@ -1,4 +1,3 @@
-//TODO: Rewrite `FineFormIter` to use `InternalFineFormIter`.
 use bitvec::prelude::*;
 use core::ops::Shr;
 use num_bigint::*;
@@ -66,7 +65,7 @@ impl Iterator for PowersetIter {
 /// Invariant: the number of bits of `prev_level_powerset` is always equal to `prev_level.len()`.
 /// Invariant: the number of bits of `literals_powerset` is always equal to `num_variables`.
 #[derive(Debug)]
-struct InternalFineFormIter {
+struct BasicLevelFineFormIter {
     // The number of variables to use
     num_variables: NnfAtom,
     literals_powerset: PowersetIter,
@@ -75,14 +74,14 @@ struct InternalFineFormIter {
     curr_level_formulae: Vec<NNF>,
 }
 
-impl InternalFineFormIter {
-    pub fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> InternalFineFormIter {
+impl BasicLevelFineFormIter {
+    pub fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> BasicLevelFineFormIter {
         // Allocate some space for `curr_level_formulae` by default, but
         // not too much.
         let prev_level_len = prev_level.len();
         let curr_level_formulae_len =
             (num_variables as usize) * (usize::pow(2, usize::min(prev_level_len, 16) as u32));
-        InternalFineFormIter {
+        BasicLevelFineFormIter {
             num_variables,
             literals_powerset: PowersetIter::new(num_variables as usize),
             prev_level,
@@ -92,7 +91,7 @@ impl InternalFineFormIter {
     }
 }
 
-impl Iterator for InternalFineFormIter {
+impl Iterator for BasicLevelFineFormIter {
     type Item = NNF;
     fn next(&mut self) -> Option<NNF> {
         // Only advance `prev_level_powerset` if `literals_powerset` runs out.
@@ -135,14 +134,14 @@ impl Iterator for InternalFineFormIter {
 
 /// Lists all basic Fine forms
 pub struct BasicFineFormIter {
-    internal_iter: InternalFineFormIter,
+    internal_iter: BasicLevelFineFormIter,
     curr_level: usize,
 }
 
 impl BasicFineFormIter {
     pub fn new(num_variables: NnfAtom) -> BasicFineFormIter {
         BasicFineFormIter {
-            internal_iter: InternalFineFormIter::new(num_variables, Vec::new()),
+            internal_iter: BasicLevelFineFormIter::new(num_variables, Vec::new()),
             curr_level: 0,
         }
     }
@@ -161,7 +160,7 @@ impl Iterator for BasicFineFormIter {
         }
         // If there is no such formula, prepare the next level.
         self.curr_level += 1;
-        let new_internal_iter = InternalFineFormIter::new(
+        let new_internal_iter = BasicLevelFineFormIter::new(
             self.internal_iter.num_variables,
             std::mem::take(&mut self.internal_iter.curr_level_formulae),
         );
@@ -170,31 +169,81 @@ impl Iterator for BasicFineFormIter {
     }
 }
 
-/// Invariant: the number of bits of `prev_level_powerset` is always equal to `prev_level.len()`.
-/// Invariant: the number of bits of `literals_powerset` is always equal to `num_variables`.
+/// Iterates over all modal formulae in Fine Normal Form
+/// (i.e. disjunctions of basic Fine Forms) of a certain level.
+#[derive(Debug)]
+struct LevelFineFormIter {
+    internal_iter: BasicLevelFineFormIter,
+    full_powerset: BigInt,
+}
+
+impl LevelFineFormIter {
+    /// `prev_level` shall contain the basic normal forms of the previous level.
+    /// If `prev_level` is not empty, then `NNF::Bot` (empty
+    /// disjunction) will not be listed. No particular effort is made to list `NNF::Top`.
+    fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> LevelFineFormIter {
+        // This could be replaced by `full_powerset = BigInt::zero()`,
+        // but this would break compatibility to the old code.
+        let full_powerset = if prev_level.is_empty() {
+            BigInt::zero()
+        } else {
+            BigInt::one()
+        };
+
+        LevelFineFormIter {
+            internal_iter: BasicLevelFineFormIter::new(num_variables, prev_level),
+            full_powerset,
+        }
+    }
+}
+
+impl Iterator for LevelFineFormIter {
+    type Item = NNF;
+    fn next(&mut self) -> Option<NNF> {
+        if self.full_powerset.bits() > self.internal_iter.curr_level_formulae.len() as u64 {
+            // generate a new formula and if the level didn't change, output the next formula
+            if self.internal_iter.next().is_some() {
+                return self.next();
+            } else {
+                return None;
+            }
+        }
+
+        // Otherwise return the next formula
+        let bitvec = bigint_to_bitvec(
+            self.full_powerset.clone(),
+            self.full_powerset.bits() as usize,
+        );
+        let mut formula_vec = Vec::with_capacity(self.full_powerset.bits() as usize);
+        for (b, nnf) in bitvec
+            .iter()
+            .zip(self.internal_iter.curr_level_formulae.iter())
+        {
+            if *b {
+                formula_vec.push(nnf.clone());
+            }
+        }
+
+        self.full_powerset += BigInt::one();
+        Some(NNF::Or(formula_vec))
+    }
+}
+
+/// Iterates over all modal formulae in Fine Normal Form
+/// (i.e. disjunctions of basic Fine Forms).
 #[derive(Debug)]
 pub struct FineFormIter {
-    // The number of variables to use
-    num_variables: NnfAtom,
-    literals_powerset: PowersetIter,
-    prev_level: Vec<NNF>,
-    prev_level_powerset: Peekable<PowersetIter>,
-    curr_level_formulae: Vec<NNF>,
+    first_step: bool,
+    internal_iter: LevelFineFormIter,
     curr_level: usize,
-
-    full_powerset: Option<BigInt>,
 }
 
 impl FineFormIter {
     pub fn new(num_variables: NnfAtom) -> FineFormIter {
         FineFormIter {
-            num_variables,
-            literals_powerset: PowersetIter::new(num_variables as usize),
-            prev_level: Vec::new(),
-            prev_level_powerset: PowersetIter::new(0).peekable(),
-            curr_level_formulae: Vec::new(),
+            first_step: true,
+            internal_iter: LevelFineFormIter::new(num_variables, Vec::new()),
             curr_level: 0,
-            full_powerset: None,
         }
     }
 
@@ -203,137 +252,39 @@ impl FineFormIter {
     }
 
     pub fn get_curr_level_len(&self) -> usize {
-        self.curr_level_formulae.len()
-    }
-
-    /// Returns `true` if a new level would have to start. I.e. iff `self.prev_level_powerset` is empty.
-    /// Otherwise it returns `false` and adds the next "normal form" to `self.curr_level_formulae`.
-    fn generate_next_formula_curr_level(&mut self) -> bool {
-        // Only advance the `prev_level_powerset` if
-        // `literals_powerset` runs out.
-
-        // Peek into `prev_level_powerset` to obtain
-        // instructions, about the sign of the previous level.
-        let prev_set = self.prev_level_powerset.peek();
-        if prev_set.is_none() {
-            // `prev_level_powerset` is empty now. So we are done with this level.
-            return true;
-        }
-        let prev_set = prev_set.unwrap();
-
-        if let Some(literals_set) = self.literals_powerset.next() {
-            let mut literals_vec = Vec::with_capacity(literals_set.len() + self.prev_level.len());
-            for (i, b) in literals_set.iter().enumerate() {
-                if *b {
-                    literals_vec.push(NNF::AtomPos(i as NnfAtom));
-                } else {
-                    literals_vec.push(NNF::AtomNeg(i as NnfAtom));
-                }
-            }
-            for (b, nnf) in prev_set.iter().zip(self.prev_level.iter()) {
-                if *b {
-                    literals_vec.push(NNF::NnfDia(Box::new(nnf.clone())));
-                } else {
-                    literals_vec.push(NNF::NnfBox(Box::new(nnf.neg())));
-                }
-            }
-
-            let out: NNF = NNF::And(literals_vec).simpl();
-            self.curr_level_formulae.push(out);
-            false
-        } else {
-            // We are done with this set of formulae from the previous level.
-            // Go to the next.
-            self.prev_level_powerset.next();
-            // And reset the literals iterator.
-            self.literals_powerset = PowersetIter::new(self.num_variables as usize);
-            // Then return the next element of this level.
-            self.generate_next_formula_curr_level()
-        }
-    }
-
-    /// Returns true, if a new level started
-    #[allow(dead_code)]
-    fn generate_next_formula(&mut self) -> bool {
-        if self.generate_next_formula_curr_level() {
-            self.prepare_next_level();
-            true
-        } else {
-            // No new level started, so return `false`
-            false
-        }
-    }
-
-    /// Output the next formula iff it is on the current level.
-    pub fn next_curr_level(&mut self) -> Option<NNF> {
-        if self.full_powerset.is_none() {
-            self.full_powerset = Some(BigInt::zero());
-            return Some(NNF::Top);
-        }
-
-        let full_powerset = self.full_powerset.as_ref().unwrap();
-
-        if full_powerset.bits() > self.curr_level_formulae.len() as u64 {
-            // generate a new formula and if the level didn't change, output the next formula
-            if !self.generate_next_formula_curr_level() {
-                return self.next_curr_level();
-            } else {
-                return None;
-            }
-        }
-
-        // Otherwise return the next formula.
-        let bitvec = bigint_to_bitvec(full_powerset.clone(), full_powerset.bits() as usize);
-        let mut formula_vec = Vec::with_capacity(full_powerset.bits() as usize);
-
-        for (b, nnf) in bitvec.iter().zip(self.curr_level_formulae.iter()) {
-            if *b {
-                formula_vec.push(nnf.clone());
-            }
-        }
-
-        self.full_powerset = Some(full_powerset + BigInt::one());
-        Some(NNF::Or(formula_vec))
-    }
-
-    pub fn prepare_next_level(&mut self) {
-        assert!(self.prev_level_powerset.peek().is_none());
-        // `prev_level_powerset` is empty now. So we are done with this level.
-        self.prev_level.clear();
-        // this empties `self.curr_level_formulae` into `self.prev_level`
-        self.prev_level.append(&mut self.curr_level_formulae);
-        self.curr_level += 1;
-        // the `literals_powerset` iterator is still fresh, so no need to update it.
-        self.prev_level_powerset = PowersetIter::new(self.prev_level.len()).peekable();
-        self.full_powerset = Some(BigInt::one());
+        self.internal_iter.internal_iter.curr_level_formulae.len()
     }
 }
 
 impl Iterator for FineFormIter {
     type Item = NNF;
     fn next(&mut self) -> Option<NNF> {
-        if let Some(formula) = self.next_curr_level() {
-            return Some(formula);
+        // On the very first step, always output `NNF::Top`.
+        // Note that this mechanism could be removed, because
+        // `NNF::Top` always appears on the first level.
+        // This is only kept to be backwards compatible with the previous `FineFormIter`.
+        if self.first_step {
+            self.first_step = false;
+            return Some(NNF::Top);
         }
 
-        self.prepare_next_level();
+        // Return the next formula from the internal iterator
+        if let Some(nnf) = self.internal_iter.next() {
+            return Some(nnf);
+        }
+        // If there is no such formula, prepare the next level.
+        self.curr_level += 1;
+        println!("NewFineFormIter goes to next level. prev_level is:");
+        print!("[");
+        for f in &self.internal_iter.internal_iter.curr_level_formulae {
+            print!("{}, ", f.display_beautiful());
+        }
+        println!("]");
+        let new_internal_iter = LevelFineFormIter::new(
+            self.internal_iter.internal_iter.num_variables,
+            std::mem::take(&mut self.internal_iter.internal_iter.curr_level_formulae),
+        );
+        self.internal_iter = new_internal_iter;
         self.next()
     }
-}
-
-/// Generates a `Vec` of all formulae in fineform of modal degree at
-/// most `max_modal_degree`.
-#[allow(dead_code)]
-pub fn fineform_bounded_level(num_vars: NnfAtom, max_modal_degree: usize) -> Vec<NNF> {
-    let mut ff_iter = FineFormIter::new(num_vars);
-    let mut output = Vec::new();
-
-    loop {
-        if ff_iter.get_curr_level() > max_modal_degree {
-            break;
-        }
-        output.push(ff_iter.next().unwrap());
-    }
-
-    output
 }
