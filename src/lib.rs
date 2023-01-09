@@ -17,11 +17,11 @@ extern crate lalrpop_util;
 lalrpop_mod!(#[allow(clippy::all)] pub nnf_parser, "/src/nnf_parser.rs");
 
 pub mod decider;
-mod fineform_correct;
+mod fineform_iter;
 //mod lazy_decider;
 //mod lazy_nnf;
 mod nnf;
 mod powerset;
 
-pub use fineform_correct::{BasicFineFormIter, FineFormIter};
+pub use fineform_iter::{BasicFineFormIter, FineFormIter};
 pub use nnf::{arb_nnf_var, NnfAtom, NNF};
