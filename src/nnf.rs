@@ -76,12 +76,12 @@ impl NNF {
         }
     }
 
-    pub fn is_varfree(&self) -> bool {
+    pub fn is_ground(&self) -> bool {
         match self {
             NNF::AtomPos(_) | NNF::AtomNeg(_) => false,
             NNF::Bot | NNF::Top => true,
-            NNF::And(a) | NNF::Or(a) => a.iter().all(|x| x.is_varfree()),
-            NNF::NnfBox(a) | NNF::NnfDia(a) => a.is_varfree(),
+            NNF::And(a) | NNF::Or(a) => a.iter().all(|x| x.is_ground()),
+            NNF::NnfBox(a) | NNF::NnfDia(a) => a.is_ground(),
         }
     }
 

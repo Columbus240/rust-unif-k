@@ -228,8 +228,8 @@ impl PSI {
 
     pub fn is_varfree(&self) -> bool {
         self.atoms.is_empty()
-            && self.lb.iter().all(NNF::is_varfree)
-            && self.rb.iter().all(NNF::is_varfree)
+            && self.lb.iter().all(NNF::is_ground)
+            && self.rb.iter().all(NNF::is_ground)
     }
 
     /// Represent this sequent as `NNF` but keep the left and right
@@ -1035,7 +1035,7 @@ impl PSB {
     }
 
     pub fn is_varfree(&self) -> bool {
-        self.lb.iter().all(NNF::is_varfree) && self.rb.iter().all(NNF::is_varfree)
+        self.lb.iter().all(NNF::is_ground) && self.rb.iter().all(NNF::is_ground)
     }
 
     pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
