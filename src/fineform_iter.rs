@@ -60,7 +60,7 @@ impl Iterator for PowersetIter {
 
 /// Lists all the basic fine forms of a certain level (as `NNF`).
 /// The basic fine forms of the previous level must be given as an
-/// argument, this struct does not keep track of that.
+/// argument (as `Vec<NNF>`), this struct does not keep track of that.
 ///
 /// Invariant: the number of bits of `prev_level_powerset` is always equal to `prev_level.len()`.
 /// Invariant: the number of bits of `literals_powerset` is always equal to `num_variables`.
@@ -274,12 +274,6 @@ impl Iterator for FineFormNNFIter {
         }
         // If there is no such formula, prepare the next level.
         self.curr_level += 1;
-        println!("NewFineFormIter goes to next level. prev_level is:");
-        print!("[");
-        for f in &self.internal_iter.internal_iter.curr_level_formulae {
-            print!("{}, ", f.display_beautiful());
-        }
-        println!("]");
         let new_internal_iter = LevelFineFormNNFIter::new(
             self.internal_iter.internal_iter.num_variables,
             std::mem::take(&mut self.internal_iter.internal_iter.curr_level_formulae),
