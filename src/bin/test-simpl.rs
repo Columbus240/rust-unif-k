@@ -1,12 +1,12 @@
 extern crate generator;
-use generator::{FineFormIter, NnfAtom, NNF};
+use generator::{FineFormNNFIter, NnfAtom, NNF};
 
 #[allow(unreachable_code)]
 fn main() {
     const MAX_LOOPS: usize = 1625;
     const NUM_VARIABLES: NnfAtom = 0;
 
-    for (i, nnf) in FineFormIter::new(NUM_VARIABLES).enumerate() {
+    for (i, nnf) in FineFormNNFIter::new(NUM_VARIABLES).enumerate() {
         if i > MAX_LOOPS {
             break;
         }

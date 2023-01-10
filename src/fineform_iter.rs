@@ -58,14 +58,14 @@ impl Iterator for PowersetIter {
     }
 }
 
-/// Lists all the basic fine forms of a certain level.
+/// Lists all the basic fine forms of a certain level (as `NNF`).
 /// The basic fine forms of the previous level must be given as an
 /// argument, this struct does not keep track of that.
 ///
 /// Invariant: the number of bits of `prev_level_powerset` is always equal to `prev_level.len()`.
 /// Invariant: the number of bits of `literals_powerset` is always equal to `num_variables`.
 #[derive(Debug)]
-struct BasicLevelFineFormIter {
+struct BasicLevelFineFormNNFIter {
     // The number of variables to use
     num_variables: NnfAtom,
     literals_powerset: PowersetIter,
@@ -74,14 +74,14 @@ struct BasicLevelFineFormIter {
     curr_level_formulae: Vec<NNF>,
 }
 
-impl BasicLevelFineFormIter {
-    pub fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> BasicLevelFineFormIter {
+impl BasicLevelFineFormNNFIter {
+    pub fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> BasicLevelFineFormNNFIter {
         // Allocate some space for `curr_level_formulae` by default, but
         // not too much.
         let prev_level_len = prev_level.len();
         let curr_level_formulae_len =
             (num_variables as usize) * (usize::pow(2, usize::min(prev_level_len, 16) as u32));
-        BasicLevelFineFormIter {
+        BasicLevelFineFormNNFIter {
             num_variables,
             literals_powerset: PowersetIter::new(num_variables as usize),
             prev_level,
@@ -91,7 +91,7 @@ impl BasicLevelFineFormIter {
     }
 }
 
-impl Iterator for BasicLevelFineFormIter {
+impl Iterator for BasicLevelFineFormNNFIter {
     type Item = NNF;
     fn next(&mut self) -> Option<NNF> {
         // Only advance `prev_level_powerset` if `literals_powerset` runs out.
@@ -132,16 +132,16 @@ impl Iterator for BasicLevelFineFormIter {
     }
 }
 
-/// Lists all basic Fine forms
-pub struct BasicFineFormIter {
-    internal_iter: BasicLevelFineFormIter,
+/// Lists all basic Fine forms (as `NNF`)
+pub struct BasicFineFormNNFIter {
+    internal_iter: BasicLevelFineFormNNFIter,
     curr_level: usize,
 }
 
-impl BasicFineFormIter {
-    pub fn new(num_variables: NnfAtom) -> BasicFineFormIter {
-        BasicFineFormIter {
-            internal_iter: BasicLevelFineFormIter::new(num_variables, Vec::new()),
+impl BasicFineFormNNFIter {
+    pub fn new(num_variables: NnfAtom) -> BasicFineFormNNFIter {
+        BasicFineFormNNFIter {
+            internal_iter: BasicLevelFineFormNNFIter::new(num_variables, Vec::new()),
             curr_level: 0,
         }
     }
@@ -151,7 +151,7 @@ impl BasicFineFormIter {
     }
 }
 
-impl Iterator for BasicFineFormIter {
+impl Iterator for BasicFineFormNNFIter {
     type Item = NNF;
     fn next(&mut self) -> Option<NNF> {
         // Return the next formula from the internal iterator
@@ -160,7 +160,7 @@ impl Iterator for BasicFineFormIter {
         }
         // If there is no such formula, prepare the next level.
         self.curr_level += 1;
-        let new_internal_iter = BasicLevelFineFormIter::new(
+        let new_internal_iter = BasicLevelFineFormNNFIter::new(
             self.internal_iter.num_variables,
             std::mem::take(&mut self.internal_iter.curr_level_formulae),
         );
@@ -172,16 +172,16 @@ impl Iterator for BasicFineFormIter {
 /// Iterates over all modal formulae in Fine Normal Form
 /// (i.e. disjunctions of basic Fine Forms) of a certain level.
 #[derive(Debug)]
-struct LevelFineFormIter {
-    internal_iter: BasicLevelFineFormIter,
+struct LevelFineFormNNFIter {
+    internal_iter: BasicLevelFineFormNNFIter,
     full_powerset: BigInt,
 }
 
-impl LevelFineFormIter {
+impl LevelFineFormNNFIter {
     /// `prev_level` shall contain the basic normal forms of the previous level.
     /// If `prev_level` is not empty, then `NNF::Bot` (empty
     /// disjunction) will not be listed. No particular effort is made to list `NNF::Top`.
-    fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> LevelFineFormIter {
+    fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> LevelFineFormNNFIter {
         // This could be replaced by `full_powerset = BigInt::zero()`,
         // but this would break compatibility to the old code.
         let full_powerset = if prev_level.is_empty() {
@@ -190,14 +190,14 @@ impl LevelFineFormIter {
             BigInt::one()
         };
 
-        LevelFineFormIter {
-            internal_iter: BasicLevelFineFormIter::new(num_variables, prev_level),
+        LevelFineFormNNFIter {
+            internal_iter: BasicLevelFineFormNNFIter::new(num_variables, prev_level),
             full_powerset,
         }
     }
 }
 
-impl Iterator for LevelFineFormIter {
+impl Iterator for LevelFineFormNNFIter {
     type Item = NNF;
     fn next(&mut self) -> Option<NNF> {
         if self.full_powerset.bits() > self.internal_iter.curr_level_formulae.len() as u64 {
@@ -232,17 +232,17 @@ impl Iterator for LevelFineFormIter {
 /// Iterates over all modal formulae in Fine Normal Form
 /// (i.e. disjunctions of basic Fine Forms).
 #[derive(Debug)]
-pub struct FineFormIter {
+pub struct FineFormNNFIter {
     first_step: bool,
-    internal_iter: LevelFineFormIter,
+    internal_iter: LevelFineFormNNFIter,
     curr_level: usize,
 }
 
-impl FineFormIter {
-    pub fn new(num_variables: NnfAtom) -> FineFormIter {
-        FineFormIter {
+impl FineFormNNFIter {
+    pub fn new(num_variables: NnfAtom) -> FineFormNNFIter {
+        FineFormNNFIter {
             first_step: true,
-            internal_iter: LevelFineFormIter::new(num_variables, Vec::new()),
+            internal_iter: LevelFineFormNNFIter::new(num_variables, Vec::new()),
             curr_level: 0,
         }
     }
@@ -256,7 +256,7 @@ impl FineFormIter {
     }
 }
 
-impl Iterator for FineFormIter {
+impl Iterator for FineFormNNFIter {
     type Item = NNF;
     fn next(&mut self) -> Option<NNF> {
         // On the very first step, always output `NNF::Top`.
@@ -280,7 +280,7 @@ impl Iterator for FineFormIter {
             print!("{}, ", f.display_beautiful());
         }
         println!("]");
-        let new_internal_iter = LevelFineFormIter::new(
+        let new_internal_iter = LevelFineFormNNFIter::new(
             self.internal_iter.internal_iter.num_variables,
             std::mem::take(&mut self.internal_iter.internal_iter.curr_level_formulae),
         );

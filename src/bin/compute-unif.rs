@@ -1,7 +1,7 @@
 //! Go through all normal forms and decide unifiability.
 extern crate generator;
 use generator::decider::ClauseSet;
-use generator::FineFormIter;
+use generator::FineFormNNFIter;
 
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use rayon::prelude::*;
@@ -13,7 +13,7 @@ fn main() {
 
     let mut stuck_clauses: Vec<(usize, ClauseSet)> = Vec::new();
 
-    FineFormIter::new(1)
+    FineFormNNFIter::new(1)
         .take(1000)
         .enumerate()
         //        .par_bridge()

@@ -2,7 +2,7 @@ extern crate generator;
 use generator::decider::*;
 use generator::nnf_parser;
 use generator::nnf_parser::*;
-use generator::FineFormIter;
+use generator::FineFormNNFIter;
 use generator::NNF;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -124,7 +124,7 @@ fn main() {
         }
     }
 
-    FineFormIter::new(0)
+    FineFormNNFIter::new(0)
         .enumerate()
         //.take(900)
         .par_bridge()

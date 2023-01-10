@@ -1,9 +1,9 @@
 extern crate generator;
-use generator::BasicFineFormIter;
-use generator::FineFormIter;
+use generator::BasicFineFormNNFIter;
+use generator::FineFormNNFIter;
 
 fn main() {
-    let mut iter = BasicFineFormIter::new(0);
+    let mut iter = BasicFineFormNNFIter::new(0);
     let mut i: usize = 0;
     while i < 32 {
         let nnf = iter.next().unwrap().simpl();
@@ -16,7 +16,7 @@ fn main() {
         i += 1;
     }
 
-    let mut iter = FineFormIter::new(0);
+    let mut iter = FineFormNNFIter::new(0);
     let mut i: usize = 0;
     while i < 32 {
         let nnf = iter.next().unwrap().simpl();

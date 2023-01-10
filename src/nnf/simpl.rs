@@ -1085,7 +1085,7 @@ use test::Bencher;
 #[bench]
 fn bench_simpl_fast(b: &mut Bencher) {
     b.iter(|| {
-        crate::fineform_iter::FineFormIter::new(5)
+        crate::fineform_iter::FineFormNNFIter::new(5)
             .take(200)
             .map(NNF::simpl)
             .for_each(drop);

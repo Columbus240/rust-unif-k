@@ -1,18 +1,18 @@
 extern crate generator;
-use generator::FineFormIter;
+use generator::FineFormNNFIter;
 //fineform_correct::FineFormIter;
 //use generator::nnf::NNF;
 use rayon::prelude::*;
 
 fn main() {
-    'a: for (i, nnf) in FineFormIter::new(1).enumerate() {
+    'a: for (i, nnf) in FineFormNNFIter::new(1).enumerate() {
         let nnf_simpl = nnf.simpl();
         if let Ok(b) = nnf_simpl.clone().check_unifiable() {
             if !b {
                 println!("index {}, non-unif skipped", i);
                 continue 'a;
             }
-            let c = FineFormIter::new(0)
+            let c = FineFormNNFIter::new(0)
                 .take(250)
                 .enumerate()
                 //.par_bridge()

@@ -24,5 +24,5 @@ mod fineform_iter;
 mod nnf;
 mod powerset;
 
-pub use fineform_iter::{BasicFineFormIter, FineFormIter};
+pub use fineform_iter::{BasicFineFormNNFIter, FineFormNNFIter};
 pub use nnf::{arb_nnf_var, NnfAtom, NNF};

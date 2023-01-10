@@ -1,5 +1,5 @@
 extern crate generator;
-use generator::FineFormIter;
+use generator::FineFormNNFIter;
 use generator::{arb_nnf_var, NnfAtom, NNF};
 
 use std::collections::btree_map::BTreeMap;
@@ -178,7 +178,7 @@ fn find_random_non_decidables() {
 
 #[allow(dead_code)]
 fn find_non_decidables(num_variables: u8) {
-    let mut ff_iter = FineFormIter::new(num_variables);
+    let mut ff_iter = FineFormNNFIter::new(num_variables);
     let mut i = 0;
     while let Some(nnf) = ff_iter.next() {
         match nnf.clone().check_unifiable() {
@@ -284,7 +284,7 @@ fn main() {
 
     let mut decidable: usize = 0;
     let mut undecidable: usize = 0;
-    for (i, nnf) in FineFormIter::new(1).enumerate() {
+    for (i, nnf) in FineFormNNFIter::new(1).enumerate() {
         let nnf_simpl = nnf.clone().simpl();
         let nnf_unif = nnf.clone().check_unifiable();
         let nnf_simpl_unif = nnf_simpl.check_unifiable();

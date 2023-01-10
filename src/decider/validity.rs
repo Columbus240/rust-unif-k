@@ -161,7 +161,7 @@ fn test_validity_spartacus0(nnf in crate::nnf::arb_nnf()) {
 }
 #[test]
 fn test_validity_spartacus1() {
-    for nnf in crate::fineform_iter::FineFormIter::new(2).take(100) {
+    for nnf in crate::fineform_iter::FineFormNNFIter::new(2).take(100) {
         assert_eq!(nnf.clone().is_valid(), NNF::check_using_spartacus(nnf));
     }
 }
@@ -173,7 +173,7 @@ use test::Bencher;
 #[bench]
 fn bench_is_valid(b: &mut Bencher) {
     b.iter(|| {
-        crate::fineform_iter::FineFormIter::new(5)
+        crate::fineform_iter::FineFormNNFIter::new(5)
             .take(200)
             .map(|phi| phi.is_valid())
             .for_each(drop);
