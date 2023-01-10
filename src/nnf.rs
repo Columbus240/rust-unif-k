@@ -9,6 +9,11 @@ pub use simpl::*;
 
 pub type NnfAtom = u8;
 
+/// A datatype to model the syntax of modal logic.
+///
+/// It is called "negation normal form" because negation signs may only occur
+/// in front of propositional variables. This is analogous to the similar
+/// notion in classical propositional logic.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum NNF {
     AtomPos(NnfAtom),
@@ -50,6 +55,7 @@ impl NNF {
         }
     }
 
+    /// Returns the modal degree of the formula.
     pub fn degree(&self) -> usize {
         match self {
             NNF::AtomPos(_) => 0,
@@ -64,6 +70,7 @@ impl NNF {
         }
     }
 
+    /// Returns `true` if `atom` appears somewhere in the formula.
     pub fn contains_atom(&self, atom: NnfAtom) -> bool {
         match self {
             NNF::AtomPos(i) | NNF::AtomNeg(i) => *i == atom,
@@ -76,6 +83,8 @@ impl NNF {
         }
     }
 
+    /// Returns `true` if this is a ground formula. I.e. if no variable appears
+    /// in it.
     pub fn is_ground(&self) -> bool {
         match self {
             NNF::AtomPos(_) | NNF::AtomNeg(_) => false,
