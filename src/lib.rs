@@ -6,6 +6,11 @@
 #![warn(clippy::missing_panics_doc)]
 #![warn(clippy::explicit_iter_loop)]
 #![warn(clippy::explicit_into_iter_loop)]
+#![warn(clippy::if_not_else)]
+#![warn(clippy::missing_errors_doc)]
+#![warn(clippy::needless_pass_by_value)]
+#![warn(clippy::must_use_candidate)]
+#![warn(clippy::semicolon_if_nothing_returned)]
 
 #[allow(unused_imports)]
 use std::collections::btree_map::BTreeMap;
