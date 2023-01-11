@@ -44,21 +44,6 @@ impl NNF {
         }
     }
 
-    #[allow(clippy::len_without_is_empty)]
-    pub fn len(&self) -> usize {
-        match self {
-            NNF::AtomPos(_) => 2,
-            NNF::AtomNeg(_) => 2,
-            NNF::Bot => 1,
-            NNF::Top => 1,
-            NNF::And(a) | NNF::Or(a) => {
-                a.iter().map(NNF::len).sum::<usize>() + 1
-                //a.par_iter().map(NNF::len).sum::<usize>() + 1
-            }
-            NNF::NnfBox(a) | NNF::NnfDia(a) => a.len() + 1,
-        }
-    }
-
     /// Returns the modal degree of the formula.
     pub fn degree(&self) -> usize {
         match self {
