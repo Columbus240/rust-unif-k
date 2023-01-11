@@ -37,8 +37,8 @@ impl NNF {
             NNF::AtomNeg(i) => NNF::AtomPos(*i),
             NNF::Bot => NNF::Top,
             NNF::Top => NNF::Bot,
-            NNF::And(a) => NNF::Or(a.iter().clone().map(|x| x.neg()).collect()),
-            NNF::Or(a) => NNF::And(a.iter().clone().map(|x| x.neg()).collect()),
+            NNF::And(a) => NNF::Or(a.iter().map(|x| x.neg()).collect()),
+            NNF::Or(a) => NNF::And(a.iter().map(|x| x.neg()).collect()),
             NNF::NnfBox(a) => NNF::NnfDia(Box::new(a.neg())),
             NNF::NnfDia(a) => NNF::NnfBox(Box::new(a.neg())),
         }

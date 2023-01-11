@@ -18,7 +18,7 @@ fn main() {
                 //.par_bridge()
                 .any(|(j, unif)| {
                     let unif = unif.simpl();
-                    let subst = nnf_simpl.substitute_all(&unif.clone()).simpl();
+                    let subst = nnf_simpl.substitute_all(&unif).simpl();
                     if subst.is_valid() {
                         if b {
                             println!("index {i}, unif ok, unif: {}", unif.display_beautiful());
