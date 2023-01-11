@@ -687,11 +687,18 @@ impl From<ClauseIrred> for ClauseAtoms {
 }
 
 /// Only used for `ClauseIrred::unifiability_simplify` because
-/// rust does not support anonymous sum types.
+/// Rust does not support anonymous sum types.
 pub enum ClauseIrredUnifSimplResult {
     Irred(ClauseIrred),
     Atoms(ClauseAtoms),
     Waiting(ClauseWaiting),
+}
+
+/// Only used for `ClauseIrred::unifiability_simplify_cut_rule` because
+/// Rust does not support anonymous sum types.
+pub enum ClauseIrredUnifSimplCutResult {
+    Cut(ClauseCut),
+    Atoms(ClauseAtoms),
 }
 
 impl ClauseIrred {
@@ -1347,7 +1354,8 @@ impl ClauseIrred {
     }
 
     /// Take care with this rule, because it may cause loops.
-    pub fn unifiability_simplify_perform_cut_rule(mut self) -> Result<ClauseCut, ClauseAtoms> {
+    #[must_use]
+    pub fn unifiability_simplify_perform_cut_rule(mut self) -> ClauseIrredUnifSimplCutResult {
         // For all sequents `sequent`, for all variables `p` on the left of this sequent,
         // Search for other sequents with `p` on the right. Then perform
         // cut on these two sequents and this variable. Add the resulting sequent to a waiting list.
@@ -1442,11 +1450,11 @@ impl ClauseIrred {
                     irreducibles: self.irreducibles,
                     atom_sequents: new_box_sequents,
                 };
-                return Err(clause_atom);
+                return ClauseIrredUnifSimplCutResult::Atoms(clause_atom);
             }
 
             if new_irred_sequents_is_empty {
-                return Ok(ClauseCut {
+                return ClauseIrredUnifSimplCutResult::Cut(ClauseCut {
                     irreducibles: self.irreducibles,
                 });
             }
@@ -1917,9 +1925,9 @@ proptest! {
     let clause_unif_simplified = clause_simplified.clone().unifiability_simplify();
     let clause_unif_simplified_unif =
         match clause_unif_simplified {
-        Ok(clause_unif_simplified) => Into::<ClauseIrred>::into(clause_unif_simplified).simple_check_unifiability(),
-        Err(Ok(clause_unif_simplified)) => clause_unif_simplified.simple_check_unifiability(),
-        Err(Err(clause_unif_simplified)) => clause_unif_simplified.simple_check_unifiability(),
+        ClauseIrredUnifSimplResult::Irred(clause_unif_simplified) => Into::<ClauseIrred>::into(clause_unif_simplified).simple_check_unifiability(),
+        ClauseIrredUnifSimplResult::Atoms(clause_unif_simplified) => clause_unif_simplified.simple_check_unifiability(),
+        ClauseIrredUnifSimplResult::Waiting(clause_unif_simplified) => clause_unif_simplified.simple_check_unifiability(),
         };
     match (clause_simplified.simple_check_unifiability(), clause_unif_simplified_unif) {
     (Some(a), Some(b)) => assert_eq!(a, b),

@@ -42,6 +42,12 @@ impl BasicFineForm {
     /// correct.
     /// It does not check whether the `FineForm` in `prev_level`
     /// satisfy the invariants.
+    ///
+    /// # Errors
+    /// This function returns an error if the invariants are not
+    /// upheld.
+    /// TODO: Describe more closely, i.e. refer to or repeat
+    /// the documentation of `BFFError`.
     pub fn new(
         degree: usize,
         num_variables: NnfAtom,

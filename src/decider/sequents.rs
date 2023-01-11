@@ -211,13 +211,13 @@ impl TryFrom<PSI> for PSB {
     type Error = PSI;
     /// Is only allowed if `atoms` is empty.
     fn try_from(value: PSI) -> Result<Self, Self::Error> {
-        if !value.atoms.is_empty() {
-            Err(value)
-        } else {
+        if value.atoms.is_empty() {
             Ok(PSB {
                 lb: value.lb,
                 rb: value.rb,
             })
+        } else {
+            Err(value)
         }
     }
 }
@@ -1002,6 +1002,8 @@ impl PS {
     }
 
     #[must_use]
+    // disabling the panic check, because none of the `unwrap` will ever panic.
+    #[allow(clippy::missing_panics_doc)]
     pub fn process_conjs_step(mut self) -> PSConjsResult {
         self.process_easy_conjs();
         if let Some(conjuncts) = self.rc.pop() {

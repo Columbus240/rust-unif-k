@@ -107,6 +107,7 @@ impl UnifCheckState {
 
 /// Returns `true` if the clause is unifiable, returns `false` if it is undecided or not unifiable.
 /// All further clauses that are created by this function are stored both in `visited_clauses` and `clause_set`.
+#[allow(clippy::needless_pass_by_value)]
 fn check_unifiable_process_conjs(
     mut clause: ClauseWaiting,
     state: Arc<Mutex<UnifCheckState>>,
@@ -141,6 +142,7 @@ fn check_unifiable_process_conjs(
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn check_unifiable_process_cut(clause: ClauseIrred, state: Arc<Mutex<UnifCheckState>>) -> bool {
     {
         let mut state = state.lock().unwrap();
@@ -166,11 +168,11 @@ fn check_unifiable_process_cut(clause: ClauseIrred, state: Arc<Mutex<UnifCheckSt
         }
     };
     match clause.clone().unifiability_simplify_perform_cut_rule() {
-        Ok(clause_cut) => {
+        ClauseIrredUnifSimplCutResult::Cut(clause_cut) => {
             state.cut_applied.insert(clause);
             state.clause_set.cut_clauses.insert(clause_cut);
         }
-        Err(clause_atoms) => {
+        ClauseIrredUnifSimplCutResult::Atoms(clause_atoms) => {
             state.cut_applied.insert(clause);
             state.insert_clause_atoms(clause_atoms);
         }
@@ -178,6 +180,7 @@ fn check_unifiable_process_cut(clause: ClauseIrred, state: Arc<Mutex<UnifCheckSt
     false
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn check_unifiable_process_atoms(clause: ClauseAtoms, state: Arc<Mutex<UnifCheckState>>) -> bool {
     if let Some(b) = clause.simple_check_unifiability() {
         return b;
@@ -284,15 +287,24 @@ impl UnifCheckState {
 }
 
 impl ClauseWaiting {
+    /// Returns `Ok(true)` if the clause set is unifiable.
+    /// Returns `Ok(false)` if the clause set is not unifiable.
+    /// Returns `Err(_)` if the algorithm can't decide.
+    /// The contents of the `Err` are the `ClauseSet` on which the
+    /// algorithm couldn't proceed further.
+    #[allow(clippy::missing_errors_doc)]
     pub fn check_unifiable(self) -> Result<bool, ClauseSet> {
         UnifCheckState::process(UnifCheckState::new(self))
     }
 }
 
 impl NNF {
-    /// Returns `Some(true)` if the formula is unifiable.
-    /// Returns `Some(false)` if the formula is not unifiable.
-    /// Returns `None` if the algorithm can't decide.
+    /// Returns `Ok(true)` if the formula is unifiable.
+    /// Returns `Ok(false)` if the formula is not unifiable.
+    /// Returns `Err(_)` if the algorithm can't decide.
+    /// The contents of the `Err` are the `ClauseSet` on which the
+    /// algorithm couldn't proceed further.
+    #[allow(clippy::missing_errors_doc)]
     pub fn check_unifiable(self) -> Result<bool, ClauseSet> {
         // First turn the formula into a sequent.
         let ps = {

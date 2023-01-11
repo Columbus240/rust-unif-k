@@ -114,6 +114,9 @@ impl NNF {
 
     /// Shorthand for material implication.
     #[must_use]
+    // Disabling the pass-by-value check, to keep the signature
+    // symmetric and in line with the other such functions.
+    #[allow(clippy::needless_pass_by_value)]
     pub fn impli(phi: NNF, psi: NNF) -> NNF {
         NNF::Or(vec![phi.neg(), psi])
     }
@@ -131,6 +134,9 @@ impl NNF {
     /// and every variable in `subst_bot` that occurs in `self` is replaced by `NNF::Bot`.
     /// The result is returned.
     /// Requires `subst_top` and `subst_bot` to be disjoint.
+    ///
+    /// # Panics
+    /// This function panics if `subst_top` and `subst_bot` are not disjoint.
     #[must_use]
     pub fn substitute_top_bot(
         self,
@@ -262,6 +268,9 @@ impl NNF {
     /// Returns true if `nnf` is valid in K and `false` otherwise.
     /// Uses an externally provided binary of Spartacus.
     /// The path to the binary is currently hardcoded.
+    ///
+    /// # Panics
+    /// This function panics, if spartacus has an error while executing.
     #[must_use]
     pub fn check_using_spartacus(&self) -> bool {
         use std::process::Command;
