@@ -1356,20 +1356,7 @@ impl ClauseIrred {
         //TODO: This loop is inefficient :
         // In the next iteration, we have forgotten, which sequents were already matched together.
         // This way we do lots of duplicate work.
-        let mut i: usize = 0;
-
         loop {
-            if i != 0 && (i % 100 == 0) {
-                eprintln!("{i}");
-            }
-            if i > 500 {
-                eprintln!("{}", self.display_beautiful());
-            }
-            if i > 10_000 {
-                panic!();
-            }
-            i += 1;
-
             let mut new_irred_sequents: BTreeSet<PSI> = BTreeSet::new();
             let mut new_box_sequents: Vec<PSB> = Vec::new();
 
