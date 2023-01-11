@@ -340,7 +340,7 @@ impl ClauseWaiting {
         let mut require_top: BTreeSet<NnfAtom> = BTreeSet::new();
         let mut require_bot: BTreeSet<NnfAtom> = BTreeSet::new();
 
-        for sequent in self.irreducibles.iter() {
+        for sequent in &self.irreducibles {
             if sequent.atoms.len() == 1 && sequent.rb.is_empty() && sequent.lb.is_empty() {
                 match sequent.atoms.iter().next().unwrap() {
                     (i, LeftRight::Left) => require_bot.insert(*i),
@@ -486,7 +486,7 @@ impl ClauseAtoms {
             }
         };
         for other_atom in atom_iter {
-            for (k, v) in atoms.clone().iter() {
+            for (k, v) in &atoms.clone() {
                 if other_atom.get(k) != Some(v) {
                     atoms.remove(k);
                 }
@@ -914,7 +914,7 @@ impl ClauseIrred {
 
         // Perform the substitutions. Because the substitutions are so
         // simple, a lot of simplifications can happen now.
-        for sequent in old_irreducibles.into_iter() {
+        for sequent in old_irreducibles {
             if let Some(seq) = sequent.substitute_top_bot(&require_top, &require_bot) {
                 if seq.atoms.len() == 1 && seq.lb.is_empty() && seq.rb.is_empty() {
                     simplify_further = true;
@@ -1275,7 +1275,7 @@ impl ClauseIrred {
         if self.is_empty() {
             return Some(true);
         }
-        for sequent in self.irreducibles.iter() {
+        for sequent in &self.irreducibles {
             if sequent.is_empty() {
                 return Some(false);
             }

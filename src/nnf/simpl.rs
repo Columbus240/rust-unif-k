@@ -472,7 +472,7 @@ impl NnfDisj {
             // it is possible that `dd` implies the negation of one of
             // the formulae in `box_disjuncts`. in that case, the
             // whole disjunction becomes trivially valid.
-            for bd in self.box_disjuncts.iter() {
+            for bd in &self.box_disjuncts {
                 if dd.clone().into_nnf() == bd.clone().into_nnf().neg() {
                     return NnfPrecise::Top;
                 }
@@ -847,7 +847,7 @@ impl NnfConj {
 
         // now simplify the parts, while writing the results back into `self`
 
-        for dc in diamond_conjuncts.into_iter() {
+        for dc in diamond_conjuncts {
             let dc = dc.simpl();
 
             if dc == NnfPrecise::Bot {
@@ -860,7 +860,7 @@ impl NnfConj {
                 return NnfPrecise::Bot;
             }
         }
-        for or in or_conjuncts.into_iter() {
+        for or in or_conjuncts {
             let or = or.simpl();
             if let Some(conj) = self.add_precise(or) {
                 self = conj;
@@ -876,7 +876,7 @@ impl NnfConj {
             // it is possible that `bc` implies the negation of one of
             // the formulae in `diamond_conjuncts`. in that case, the
             // whole disjunction becomes trivially valid.
-            for dc in self.diamond_conjuncts.iter() {
+            for dc in &self.diamond_conjuncts {
                 if bc.clone().into_nnf() == dc.clone().into_nnf().neg() {
                     return NnfPrecise::Bot;
                 }

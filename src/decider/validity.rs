@@ -52,7 +52,7 @@ fn ps_step(mut ps: PS) -> PSstepResult {
     ps.process_easy_conjs();
     if let Some(disjuncts) = ps.ld.pop() {
         let mut new_psw = Vec::with_capacity(disjuncts.len());
-        for disj in disjuncts.into_iter() {
+        for disj in disjuncts {
             new_psw.push(PSW {
                 atoms: ps.atoms.clone(),
                 lb: ps.lb.clone(),
@@ -67,7 +67,7 @@ fn ps_step(mut ps: PS) -> PSstepResult {
     }
     if let Some(conjuncts) = ps.rc.pop() {
         let mut new_psw = Vec::with_capacity(conjuncts.len());
-        for conj in conjuncts.into_iter() {
+        for conj in conjuncts {
             new_psw.push(PSW {
                 atoms: ps.atoms.clone(),
                 lb: ps.lb.clone(),
@@ -113,7 +113,7 @@ fn ps_into_psb(ps: PS) -> Vec<PSB> {
 /// returns an empty list, if the formula is contradictory
 fn psb_step(psb: PSB) -> Vec<PSW> {
     let mut output = Vec::with_capacity(psb.rb.len());
-    for rb in psb.rb.into_iter() {
+    for rb in psb.rb {
         output.push(PSW {
             atoms: BTreeMap::new(),
             lb: BTreeSet::new(),

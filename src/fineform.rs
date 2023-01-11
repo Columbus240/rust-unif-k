@@ -60,7 +60,7 @@ impl BasicFineForm {
             return Err(BFFError::TooManyVars);
         }
 
-        for ff in prev_level.iter() {
+        for ff in &prev_level {
             if ff.degree + 1 != degree {
                 return Err(BFFError::WrongDegree);
             }
@@ -140,7 +140,7 @@ impl BasicLevelFineFormIter {
         if degree == 0 && !prev_level.is_empty() {
             return Err(BFFError::DegreeZeroPrevLevel);
         }
-        for ff in prev_level.iter() {
+        for ff in &prev_level {
             if ff.degree + 1 != degree {
                 return Err(BFFError::WrongDegree);
             }

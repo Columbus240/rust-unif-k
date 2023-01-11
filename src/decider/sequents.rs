@@ -71,7 +71,7 @@ impl PSW {
     fn to_nnf_lr(&self) -> (NNF, NNF) {
         let mut atoms_l = Vec::new();
         let mut atoms_r = Vec::new();
-        for (i, lr) in self.atoms.iter() {
+        for (i, lr) in &self.atoms {
             match lr {
                 LeftRight::Left => atoms_l.push(i),
                 LeftRight::Right => atoms_r.push(i),
@@ -237,7 +237,7 @@ impl PSI {
     pub fn to_nnf_lr(&self) -> (NNF, NNF) {
         let mut atoms_l = Vec::new();
         let mut atoms_r = Vec::new();
-        for (i, lr) in self.atoms.iter() {
+        for (i, lr) in &self.atoms {
             match lr {
                 LeftRight::Left => atoms_l.push(i),
                 LeftRight::Right => atoms_r.push(i),
@@ -291,7 +291,7 @@ impl PSI {
         let mut lw = Vec::new();
         let mut rw = Vec::new();
         let mut atoms = BTreeMap::new();
-        for (atom, lr) in self.atoms.into_iter() {
+        for (atom, lr) in self.atoms {
             if let Some(nnf) = substitution.get(&atom) {
                 match lr {
                     LeftRight::Left => lw.push(nnf.clone()),
@@ -341,8 +341,8 @@ impl PSI {
             }
         }
 
-        for left_box in self.lb.iter() {
-            for right_box in self.rb.iter() {
+        for left_box in &self.lb {
+            for right_box in &self.rb {
                 if left_box == right_box {
                     *self = PSI::new_valid();
                     return;
@@ -554,7 +554,7 @@ impl PSW {
         }
 
         let mut new_left_waiting = Vec::with_capacity(self.lw.len());
-        for left_waiting in self.lw.into_iter() {
+        for left_waiting in self.lw {
             match left_waiting {
                 NNF::AtomPos(i) => {
                     if let Some(LeftRight::Right) = self.atoms.insert(i, LeftRight::Left) {
@@ -624,7 +624,7 @@ impl PSW {
         }
 
         let mut new_right_waiting = Vec::with_capacity(self.rw.len());
-        for right_waiting in self.rw.into_iter() {
+        for right_waiting in self.rw {
             match right_waiting {
                 NNF::AtomNeg(i) => {
                     if let Some(LeftRight::Right) = self.atoms.insert(i, LeftRight::Left) {
@@ -749,12 +749,12 @@ impl PS {
             phi.substitute(substitution);
             phi
         }));
-        for vec in self.ld.iter_mut() {
+        for vec in &mut self.ld {
             for phi in vec.iter_mut() {
                 phi.substitute(substitution);
             }
         }
-        for vec in self.rc.iter_mut() {
+        for vec in &mut self.rc {
             for phi in vec.iter_mut() {
                 phi.substitute(substitution);
             }
@@ -763,7 +763,7 @@ impl PS {
         let mut lw = Vec::new();
         let mut rw = Vec::new();
         let mut new_atoms = BTreeMap::new();
-        for (atom, lr) in std::mem::take(&mut self.atoms).into_iter() {
+        for (atom, lr) in std::mem::take(&mut self.atoms) {
             if let Some(nnf) = substitution.get(&atom) {
                 match lr {
                     LeftRight::Left => lw.push(nnf.clone()),
@@ -838,7 +838,7 @@ impl PS {
         // perform the substitution on the left/right conjunctions/disjunctions
         // TODO: It is possible to perform some ad-hoc optimisations
         // here, if `conjunct` or `disjunct` are `Top` or `Bot`.
-        for conjuncts in self.rc.iter_mut() {
+        for conjuncts in &mut self.rc {
             // TODO: Skip those `conjunct` that became `Top`.
             // If any element became `Bot` remove the whole `conjuncts`
             // If in the end no element remains, we are valid and can return `None`
@@ -852,7 +852,7 @@ impl PS {
                     .simpl();
             }
         }
-        for disjuncts in self.rc.iter_mut() {
+        for disjuncts in &mut self.rc {
             // TODO: Skip those `disjunct` that became `Bot`.
             // If any element became `Top` remove the whole `disjuncts`
             // If in the end no element remains, we are valid and can return `None`
@@ -904,7 +904,7 @@ impl PS {
                 rw: conjuncts,
             };
             if let Some(mut ps) = new_psw.into_ps() {
-                for (atom, dir) in ps.atoms.into_iter() {
+                for (atom, dir) in ps.atoms {
                     if let Some(prev_dir) = self.atoms.insert(atom, dir) {
                         if dir != prev_dir {
                             // There is an atom on the left and on the right.
@@ -957,7 +957,7 @@ impl PS {
                 rw: Vec::new(),
             };
             if let Some(mut ps) = new_psw.into_ps() {
-                for (atom, dir) in ps.atoms.into_iter() {
+                for (atom, dir) in ps.atoms {
                     if let Some(prev_dir) = self.atoms.insert(atom, dir) {
                         if dir != prev_dir {
                             // There is an atom on the left and on the right.
@@ -982,7 +982,7 @@ impl PS {
         self.process_easy_conjs();
         if let Some(conjuncts) = self.rc.pop() {
             let mut new_ps_set: BTreeSet<PS> = BTreeSet::new();
-            for conj in conjuncts.into_iter() {
+            for conj in conjuncts {
                 let mut new_psw: PSW = self.clone().into();
                 new_psw.rw.push(conj);
                 if let Some(new_ps) = new_psw.into_ps() {
@@ -992,7 +992,7 @@ impl PS {
             PSConjsResult::NewPS(new_ps_set)
         } else if let Some(disjuncts) = self.ld.pop() {
             let mut new_ps_set: BTreeSet<PS> = BTreeSet::new();
-            for disjunct in disjuncts.into_iter() {
+            for disjunct in disjuncts {
                 let mut new_psw: PSW = self.clone().into();
                 new_psw.lw.push(disjunct);
                 if let Some(ps) = new_psw.into_ps() {
