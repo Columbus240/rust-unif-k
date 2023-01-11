@@ -1,23 +1,32 @@
 use super::NNF;
 
 impl NNF {
+    /// Provides a pretty-printer to format the formula in UTF-8.
     pub fn display_beautiful(&self) -> DisplayBeautiful {
         DisplayBeautiful { nnf: self }
     }
 
+    /// Provides a pretty-printer to format the formula for use in
+    /// LaTeX.
     pub fn display_latex(&self) -> DisplayLaTeX {
         DisplayLaTeX { nnf: self }
     }
 
+    /// Provides a pretty-printer to format the formula for use with
+    /// Spartacus.
+    /// TODO: This format has some standardised name. Mention it here.
     pub fn display_spartacus(&self) -> DisplaySpartacus {
         DisplaySpartacus { nnf: self }
     }
 
+    /// Provides a pretty-printer to format the formula for use with
+    /// [`LiteralParser`][crate::nnf_parser::LiteralParser].
     pub fn display_parser(&self) -> DisplayParser {
         DisplayParser { nnf: self }
     }
 }
 
+/// Prints some formula in UTF-8.
 pub struct DisplayBeautiful<'a> {
     nnf: &'a NNF,
 }
@@ -71,6 +80,7 @@ impl<'a> std::fmt::Display for DisplayBeautiful<'a> {
     }
 }
 
+/// Prints some `NNF` for use in LaTeX.
 pub struct DisplayLaTeX<'a> {
     nnf: &'a NNF,
 }
@@ -124,6 +134,8 @@ impl<'a> std::fmt::Display for DisplayLaTeX<'a> {
     }
 }
 
+/// Prints some formula for use with Spartacus.
+/// TODO: Reference the name of the format.
 pub struct DisplaySpartacus<'a> {
     nnf: &'a NNF,
 }
@@ -177,6 +189,8 @@ impl<'a> std::fmt::Display for DisplaySpartacus<'a> {
     }
 }
 
+/// Prints some formula for use with
+/// [`LiteralParser`][crate::nnf_parser::LiteralParser].
 pub struct DisplayParser<'a> {
     nnf: &'a NNF,
 }

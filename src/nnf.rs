@@ -7,6 +7,7 @@ pub use random::*;
 mod simpl;
 pub use simpl::*;
 
+/// Represents propositional variables in `NNF`.
 pub type NnfAtom = u8;
 
 /// A datatype to model the syntax of modal logic.
@@ -27,6 +28,9 @@ pub enum NNF {
 }
 
 impl NNF {
+    /// Returns the negation of the formula.
+    /// It is computed by switching `AtomPos` with `AtomNeg`, `Bot` with
+    /// `Top`, `And` with `Or` and `NnfBox` with `NnfDia`.
     pub fn neg(&self) -> NNF {
         match self {
             NNF::AtomPos(i) => NNF::AtomNeg(*i),
@@ -70,7 +74,8 @@ impl NNF {
         }
     }
 
-    /// Returns `true` if `atom` appears somewhere in the formula.
+    /// Returns `true` if `AtomPos(atom)` or `AtomNeg(atom)` appears
+    /// somewhere in the formula.
     pub fn contains_atom(&self, atom: NnfAtom) -> bool {
         match self {
             NNF::AtomPos(i) | NNF::AtomNeg(i) => *i == atom,
@@ -94,30 +99,36 @@ impl NNF {
         }
     }
 
+    /// Shorthand for conjunction of two formulas.
     #[allow(dead_code)]
     pub fn and(phi: NNF, psi: NNF) -> NNF {
         NNF::And(vec![phi, psi])
     }
 
+    /// Shorthand for disjunction of two formulas.
     #[allow(dead_code)]
     pub fn or(phi: NNF, psi: NNF) -> NNF {
         NNF::Or(vec![phi, psi])
     }
 
+    /// Shorthand for prefixing a formula with a box.
     #[allow(dead_code)]
     pub fn boxx(self) -> NNF {
         NNF::NnfBox(Box::new(self))
     }
 
+    /// Shorthand for prefixing a formula with a diamond.
     #[allow(dead_code)]
     pub fn dia(self) -> NNF {
         NNF::NnfDia(Box::new(self))
     }
 
+    /// Shorthand for material implication.
     pub fn impli(phi: NNF, psi: NNF) -> NNF {
         NNF::Or(vec![phi.neg(), psi])
     }
 
+    /// Shorthand for material equivalence.
     pub fn equiv_formula(phi: NNF, psi: NNF) -> NNF {
         NNF::And(vec![
             NNF::impli(phi.clone(), psi.clone()),
@@ -125,10 +136,10 @@ impl NNF {
         ])
     }
 
-    /// Requires `subst_top` and `subst_bot` to be disjoint.
     /// Every variable in `subst_top` that occurs in `self` is replaced by `NNF::Top`,
     /// and every variable in `subst_bot` that occurs in `self` is replaced by `NNF::Bot`.
     /// The result is returned.
+    /// Requires `subst_top` and `subst_bot` to be disjoint.
     pub fn substitute_top_bot(
         self,
         subst_top: &BTreeSet<NnfAtom>,
@@ -181,6 +192,9 @@ impl NNF {
         }
     }
 
+    /// Every variable in `self` that occurs in `substitution` is
+    /// replaced by the corresponding formula in `substitution.
+    /// Variables that occur in `self` but not in `substitution` are not affected.
     pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
         match self {
             NNF::Top => {}
@@ -214,7 +228,7 @@ impl NNF {
         }
     }
 
-    // substitutes each occurrence of a variable by the formula `sigma`
+    /// Substitute all variables that occur in `self` with the formula `sigma`.
     #[allow(dead_code)]
     pub fn substitute_all(&self, sigma: &NNF) -> NNF {
         let sigma_neg = sigma.neg();
@@ -223,6 +237,10 @@ impl NNF {
         self.substitute_all1(sigma, &sigma_neg)
     }
 
+    /// Substitute all `AtomPos` that occur in `self` with `sigma` and
+    /// all `AtomNeg` with `sigma_neg`.
+    ///
+    /// Invariant: assumes `sigma_neg` to be the negation of `sigma`.
     fn substitute_all1(&self, sigma: &NNF, sigma_neg: &NNF) -> NNF {
         match self {
             NNF::Top => NNF::Top,
@@ -243,9 +261,10 @@ impl NNF {
             NNF::NnfDia(phi0) => NNF::NnfDia(Box::new(phi0.substitute_all1(sigma, sigma_neg))),
         }
     }
-}
-impl<'a> NNF {
-    pub fn iter_atoms(&'a self) -> Box<dyn Iterator<Item = NnfAtom> + 'a> {
+
+    /// Returns an iterator over all variables that appear in `self`,
+    /// with multiplicities/repetitions.
+    pub fn iter_atoms<'a>(&'a self) -> Box<dyn Iterator<Item = NnfAtom> + 'a> {
         use std::iter;
         match self {
             NNF::Top => Box::new(iter::empty()),
@@ -258,12 +277,13 @@ impl<'a> NNF {
             NNF::NnfDia(phi) => Box::new(phi.iter_atoms()),
         }
     }
-}
 
-use std::process::Command;
-
-impl NNF {
+    /// Returns true if `nnf` is valid in K and `false` otherwise.
+    /// Uses an externally provided binary of Spartacus.
+    /// The path to the binary is currently hardcoded.
     pub fn check_using_spartacus(nnf: NNF) -> bool {
+        use std::process::Command;
+        // Path to the spartacus binary
         const SPARTACUS_BIN: &str = "/home/steve/doc/uni/MA/spartacus/spartacus";
         let c = Command::new(SPARTACUS_BIN)
             .args([

@@ -1049,6 +1049,7 @@ impl NnfConj {
 }
 
 impl NNF {
+    /// Simplifiy the formula using some elementary facts.
     pub fn simpl(self) -> NNF {
         let precise = NnfPrecise::from_nnf(self);
         let precise = precise.simpl();
