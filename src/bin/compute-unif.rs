@@ -1,4 +1,5 @@
 //! Go through all normal forms and decide unifiability.
+#![allow(unused_imports)]
 extern crate generator;
 use generator::decider::ClauseSet;
 use generator::FineFormNNFIter;

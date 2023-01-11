@@ -1,7 +1,7 @@
+#![allow(unused_imports)]
 extern crate generator;
 use generator::FineFormNNFIter;
-//fineform_correct::FineFormIter;
-//use generator::nnf::NNF;
+use generator::NNF;
 use rayon::prelude::*;
 
 fn main() {

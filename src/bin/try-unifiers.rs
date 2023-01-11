@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 extern crate generator;
 use generator::decider::*;
 use generator::nnf_parser;

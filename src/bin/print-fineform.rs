@@ -1,7 +1,6 @@
 extern crate generator;
 use generator::BasicFineFormIter;
 use generator::BasicFineFormNNFIter;
-use generator::FineFormNNFIter;
 use generator::NNF;
 
 fn main() {
