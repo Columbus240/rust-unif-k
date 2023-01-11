@@ -855,7 +855,7 @@ impl NnfConj {
             }
 
             if let Some(conj) = self.add_precise(NnfPrecise::NnfDia(Box::new(dc))) {
-                self = conj
+                self = conj;
             } else {
                 return NnfPrecise::Bot;
             }

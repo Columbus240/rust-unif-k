@@ -208,6 +208,10 @@ pub struct BasicFineFormIter {
 
 impl BasicFineFormIter {
     #[must_use]
+    // This function can not panic, because
+    // `BasicLevelFineFormIter::new` is always called with correct
+    // arguments.
+    #[allow(clippy::missing_panics_doc)]
     pub fn new(num_variables: NnfAtom) -> BasicFineFormIter {
         BasicFineFormIter {
             internal_iter: BasicLevelFineFormIter::new(0, num_variables, Vec::new()).unwrap(),

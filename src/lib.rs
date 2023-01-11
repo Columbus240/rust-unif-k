@@ -22,7 +22,6 @@ use rayon::prelude::*;
 
 extern crate lalrpop_util;
 
-#[allow(clippy::all)]
 pub mod nnf_parser;
 
 pub mod decider;

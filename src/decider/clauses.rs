@@ -142,6 +142,15 @@ impl ClauseWaiting {
     }
 
     fn insert_psi(&mut self, psi: PSI) {
+        // Check whether the `psi` is a `PSB`.
+        let psi = match TryInto::<PSB>::try_into(psi) {
+            Ok(psb) => {
+                self.insert_psb(psb);
+                return;
+            }
+            Err(psi) => psi,
+        };
+
         // Check for redundant sequents.
         // If two sequents have the same premise/conclusion but their
         // conclusions/premises are subsets of eachother, we can
@@ -349,11 +358,13 @@ impl ClauseWaiting {
         let mut require_bot: BTreeSet<NnfAtom> = BTreeSet::new();
 
         for sequent in &self.irreducibles {
-            if sequent.atoms.len() == 1 && sequent.rb.is_empty() && sequent.lb.is_empty() {
-                match sequent.atoms.iter().next().unwrap() {
-                    (i, LeftRight::Left) => require_bot.insert(*i),
-                    (i, LeftRight::Right) => require_top.insert(*i),
-                };
+            if let Some(first_atom) = sequent.atoms.iter().next() {
+                if sequent.rb.is_empty() && sequent.lb.is_empty() {
+                    match first_atom {
+                        (i, LeftRight::Left) => require_bot.insert(*i),
+                        (i, LeftRight::Right) => require_top.insert(*i),
+                    };
+                }
             }
         }
 
@@ -382,11 +393,7 @@ impl ClauseWaiting {
                 if seq.atoms.len() == 1 && seq.lb.is_empty() && seq.rb.is_empty() {
                     simplify_further = true;
                 }
-                if seq.atoms.is_empty() {
-                    self.insert_psb(seq.try_into().unwrap());
-                } else {
-                    self.irreducibles.insert(seq);
-                }
+                self.insert_psi(seq);
             }
         }
         for psb in old_atom_sequents {
@@ -512,29 +519,22 @@ impl ClauseAtoms {
     #[must_use]
     pub fn process_atoms_step(self) -> ProcessAtomsResult {
         // Shortcut if the clause has no `atom_sequents`.
-        if self.atom_sequents.is_empty() {
-            // `clause` is irreducible
+        let clause: ClauseWaiting = match TryInto::<ClauseIrred>::try_into(self) {
+            Ok(clause) => {
+                let clause = clause.simplify();
 
-            let clause: ClauseIrred = self.try_into().unwrap();
-            let clause = clause.simplify();
-
-            // if the clause is trivially valid, the whole clause set is valid
-            // if the clause is trivially contradictory, we can omit this clause
-            match clause.simple_check_validity() {
-                Some(true) => {
-                    return ProcessAtomsResult::Valid;
-                }
-                Some(false) => {
-                    return ProcessAtomsResult::Contradictory;
-                }
-                None => {
-                    return ProcessAtomsResult::Irred(clause);
-                }
+                // if the clause is trivially valid, the whole clause set is valid
+                // if the clause is trivially contradictory, we can omit this clause
+                return match clause.simple_check_validity() {
+                    Some(true) => ProcessAtomsResult::Valid,
+                    Some(false) => ProcessAtomsResult::Contradictory,
+                    None => ProcessAtomsResult::Irred(clause),
+                };
             }
-        }
+            Err(clause) => ClauseWaiting::from(clause),
+        };
 
         // first process the easy atom sequents.
-        let clause = ClauseWaiting::from(self);
         let clause = clause.process_easy_boxes();
         let mut clause: ClauseAtoms = clause.process_conjs();
 
@@ -549,11 +549,13 @@ impl ClauseAtoms {
         }
 
         // Shortcut if the clause has no `atom_sequents`.
-        if clause.atom_sequents.is_empty() {
-            return ProcessAtomsResult::Irred(clause.try_into().unwrap());
-        }
-
-        let waiting_atoms_sequent = clause.atom_sequents.pop().unwrap();
+        // Otherwise pick an element from `atom_sequents`.
+        let Some(waiting_atoms_sequent) = clause.atom_sequents.pop() else {
+	    match TryInto::<ClauseIrred>::try_into(clause) {
+            Ok(irred) => return ProcessAtomsResult::Irred(irred),
+		Err(_) => unreachable!(),
+	    }
+	};
 
         // It is possible, that one of the newly generated sequents will be "trivially" true.
         // In such a case it suffices to add only the rest of the clause.
@@ -682,6 +684,14 @@ impl From<ClauseIrred> for ClauseAtoms {
             atom_sequents: Vec::new(),
         }
     }
+}
+
+/// Only used for `ClauseIrred::unifiability_simplify` because
+/// rust does not support anonymous sum types.
+pub enum ClauseIrredUnifSimplResult {
+    Irred(ClauseIrred),
+    Atoms(ClauseAtoms),
+    Waiting(ClauseWaiting),
 }
 
 impl ClauseIrred {
@@ -1253,26 +1263,27 @@ impl ClauseIrred {
 
     /// Does not perform the cut-rule, because that one may cause loops.
     //TODO: Deal with `p ⇒ φ ; φ ⇒ p` with `φ` variable-free, by substituting `p` by `φ`.
-    pub fn unifiability_simplify(self) -> Result<ClauseIrred, Result<ClauseAtoms, ClauseWaiting>> {
+    #[must_use]
+    pub fn unifiability_simplify(self) -> ClauseIrredUnifSimplResult {
         let clause_irred = match self.simplify().unifiability_simplify_empty() {
             Ok(ci) => ci,
-            Err(ca) => return Err(Ok(ca)),
+            Err(ca) => return ClauseIrredUnifSimplResult::Atoms(ca),
         };
         let clause_irred = match clause_irred.unifiability_simplify_box_p_impl_p() {
             Ok(ci) => ci,
             Err(cw) => {
-                return Err(Err(cw));
+                return ClauseIrredUnifSimplResult::Waiting(cw);
             }
         };
         let mut clause_irred = match clause_irred.unifiability_simplify_equivalents() {
             Ok(ci) => ci,
             Err(cw) => {
-                return Err(Err(cw));
+                return ClauseIrredUnifSimplResult::Waiting(cw);
             }
         };
         clause_irred.unifiability_simplify_p_impl_box_bot();
         clause_irred.unifiability_simplify_free_atoms();
-        Ok(clause_irred)
+        ClauseIrredUnifSimplResult::Irred(clause_irred)
     }
 
     /// Returns `Some(false)` if the clause contains an empty
@@ -1735,13 +1746,13 @@ impl ClauseSet {
 
         for clause_irred in std::mem::take(&mut self.irreducibles) {
             match clause_irred.unifiability_simplify() {
-                Ok(clause_irred) => {
+                ClauseIrredUnifSimplResult::Irred(clause_irred) => {
                     self.irreducibles.insert(clause_irred);
                 }
-                Err(Ok(clause_atoms)) => {
+                ClauseIrredUnifSimplResult::Atoms(clause_atoms) => {
                     self.waiting_atoms.push(clause_atoms);
                 }
-                Err(Err(clause_waiting)) => {
+                ClauseIrredUnifSimplResult::Waiting(clause_waiting) => {
                     self.waiting_conj_disj.push(clause_waiting);
                 }
             }
