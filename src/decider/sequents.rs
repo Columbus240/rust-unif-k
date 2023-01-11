@@ -232,12 +232,6 @@ impl PSI {
         }
     }
 
-    pub fn is_varfree(&self) -> bool {
-        self.atoms.is_empty()
-            && self.lb.iter().all(NNF::is_ground)
-            && self.rb.iter().all(NNF::is_ground)
-    }
-
     /// Represent this sequent as `NNF` but keep the left and right
     /// half of the sequent separate
     #[must_use]
@@ -1066,7 +1060,10 @@ impl PSB {
         Into::<PSI>::into(self.clone()).to_nnf()
     }
 
-    pub fn is_varfree(&self) -> bool {
+    /// Is true if no variables appear in this sequent.
+    ///
+    /// Analogous to [`NNF::is_ground`].
+    pub fn is_ground(&self) -> bool {
         self.lb.iter().all(NNF::is_ground) && self.rb.iter().all(NNF::is_ground)
     }
 

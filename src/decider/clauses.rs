@@ -112,7 +112,7 @@ impl ClauseWaiting {
             }
         }
         for psb in &self.atom_sequents {
-            if psb.is_varfree() && !psb.to_nnf().is_valid() {
+            if psb.is_ground() && !psb.to_nnf().is_valid() {
                 return Some(false);
             }
         }
