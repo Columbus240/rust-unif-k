@@ -456,7 +456,7 @@ impl PSI {
 
         Some(self)
     }
-    pub fn display_latex<'a>(&'a self) -> PSIDisplayLaTeX<'a> {
+    pub fn display_latex(&self) -> PSIDisplayLaTeX {
         PSIDisplayLaTeX { psi: self }
     }
 
