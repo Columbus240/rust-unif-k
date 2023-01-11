@@ -1037,8 +1037,9 @@ impl PS {
     }
 }
 
-/// Processing Sequent Boxes
-/// a `PSI` for which `atoms` is empty. I.e. it contains no atoms on either side.
+/// Processing Sequent Boxes.
+///
+/// A `PSI` for which `atoms` is empty. I.e. it contains no atoms on either side.
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct PSB {
@@ -1054,10 +1055,12 @@ impl PSB {
             rb: BTreeSet::new(),
         }
     }
+    /// Is true iff both halves of the sequent are empty.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.lb.is_empty() && self.rb.is_empty()
     }
+    /// Represent this sequent as `NNF`.
     #[must_use]
     pub fn to_nnf(&self) -> NNF {
         Into::<PSI>::into(self.clone()).to_nnf()
@@ -1122,7 +1125,7 @@ impl PSB {
     /// Transforms this sequent into equivalent sequents, if there is
     /// at most one boxed formulae on the right.
     ///
-    /// Returns `PsbEasyResult::Hard` iff it has more than one boxed formulae on the right.
+    /// Returns `PsbEasyResult::Hard` iff it has more than one boxed formula on the right.
     #[must_use]
     pub fn step_if_easy(self) -> PsbEasyResult {
         // If the sequent has no boxed formulae on the right, it is contradictory.
@@ -1174,6 +1177,9 @@ impl PSB {
     }
 }
 
+/// Used in [`PSB::step_if_easy`].
+///
+/// Necessary because Rust does not support anonymous sum types.
 pub enum PsbEasyResult {
     Hard(PSB),
     Psi(PSI),
