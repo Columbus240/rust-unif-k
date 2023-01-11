@@ -21,7 +21,7 @@ fn main() {
     ps_simpl.process_easy_conjs();
     let ps: PSW = ps.into();
     let ps_simpl: PSW = ps_simpl.into();
-    println!("{:?}", ps);
-    println!("{:?}", ps_simpl);
+    println!("{ps:?}");
+    println!("{ps_simpl:?}");
     assert!(NNF::equiv_dec(&ps.to_nnf(), &ps_simpl.to_nnf()));
 }

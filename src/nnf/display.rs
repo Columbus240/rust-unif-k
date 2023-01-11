@@ -36,8 +36,8 @@ impl<'a> std::fmt::Display for DisplayBeautiful<'a> {
         match self.nnf {
             NNF::Top => write!(f, "⊤"),
             NNF::Bot => write!(f, "⊥"),
-            NNF::AtomPos(i) => write!(f, "p{}", i),
-            NNF::AtomNeg(i) => write!(f, "¬p{}", i),
+            NNF::AtomPos(i) => write!(f, "p{i}"),
+            NNF::AtomNeg(i) => write!(f, "¬p{i}"),
             NNF::And(s) => {
                 write!(f, "(")?;
 
@@ -90,8 +90,8 @@ impl<'a> std::fmt::Display for DisplayLaTeX<'a> {
         match self.nnf {
             NNF::Top => write!(f, "\\top{{}}"),
             NNF::Bot => write!(f, "\\bot{{}}"),
-            NNF::AtomPos(i) => write!(f, "p_{{{}}}", i),
-            NNF::AtomNeg(i) => write!(f, "\\neg{{}}p_{{{}}}", i),
+            NNF::AtomPos(i) => write!(f, "p_{{{i}}}"),
+            NNF::AtomNeg(i) => write!(f, "\\neg{{}}p_{{{i}}}"),
             NNF::And(s) => {
                 write!(f, "(")?;
 
@@ -145,8 +145,8 @@ impl<'a> std::fmt::Display for DisplaySpartacus<'a> {
         match self.nnf {
             NNF::Top => write!(f, "1"),
             NNF::Bot => write!(f, "0"),
-            NNF::AtomPos(i) => write!(f, "p{}", i),
-            NNF::AtomNeg(i) => write!(f, "~p{}", i),
+            NNF::AtomPos(i) => write!(f, "p{i}"),
+            NNF::AtomNeg(i) => write!(f, "~p{i}"),
             NNF::And(s) => {
                 write!(f, "(")?;
 
@@ -200,8 +200,8 @@ impl<'a> std::fmt::Display for DisplayParser<'a> {
         match self.nnf {
             NNF::Top => write!(f, "T"),
             NNF::Bot => write!(f, "B"),
-            NNF::AtomPos(i) => write!(f, "{}", i),
-            NNF::AtomNeg(i) => write!(f, "~{}", i),
+            NNF::AtomPos(i) => write!(f, "{i}"),
+            NNF::AtomNeg(i) => write!(f, "~{i}"),
             NNF::And(s) => {
                 if s.is_empty() {
                     return write!(f, "T");

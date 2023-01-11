@@ -9,7 +9,7 @@ fn main() {
         let nnf_simpl = nnf.simpl();
         if let Ok(b) = nnf_simpl.clone().check_unifiable() {
             if !b {
-                println!("index {}, non-unif skipped", i);
+                println!("index {i}, non-unif skipped");
                 continue 'a;
             }
             let c = FineFormNNFIter::new(0)
@@ -21,10 +21,10 @@ fn main() {
                     let subst = nnf_simpl.substitute_all(&unif.clone()).simpl();
                     if subst.is_valid() {
                         if b {
-                            println!("index {}, unif ok, unif: {}", i, unif.display_beautiful());
+                            println!("index {i}, unif ok, unif: {}", unif.display_beautiful());
                             return true;
                         } else {
-                            println!("index {}, disagree unif {}", i, j);
+                            println!("index {i}, disagree unif {j}");
                             return true;
                         }
                     }
@@ -34,9 +34,9 @@ fn main() {
                 continue 'a;
             }
             if b {
-                println!("index {}, disagree non-unif", i);
+                println!("index {i}, disagree non-unif");
             } else {
-                println!("index {}, non-unif ok", i);
+                println!("index {i}, non-unif ok");
             }
         /*
             if !b {
@@ -55,7 +55,7 @@ fn main() {
             panic!("index {}, formula {}", i, nnf_simpl.display_beautiful());
         */
         } else {
-            println!("index {}, non-dec", i);
+            println!("index {i}, non-dec");
         }
     }
 }

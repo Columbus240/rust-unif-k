@@ -1327,7 +1327,7 @@ impl ClauseIrred {
 
         loop {
             if i != 0 && (i % 100 == 0) {
-                eprintln!("{}", i);
+                eprintln!("{i}");
             }
             if i > 500 {
                 eprintln!("{}", self.display_beautiful());

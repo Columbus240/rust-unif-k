@@ -134,7 +134,7 @@ fn find_random_non_decidables() {
 
     for i in 0..MAX_LOOPS {
         if i > 0 && (i % 100 == 0) {
-            println!("{}", i);
+            println!("{i}");
         }
         let nnf_val = arb_nnf_var(NUM_VARIABLES).new_tree(&mut runner).unwrap();
 
@@ -173,7 +173,7 @@ fn find_random_non_decidables() {
             }
         }
     }
-    println!("loops {}, dec {:?}", MAX_LOOPS, decidables);
+    println!("loops {MAX_LOOPS}, dec {decidables:?}");
 }
 
 #[allow(dead_code)]
@@ -187,7 +187,7 @@ fn find_non_decidables(num_variables: u8) {
             }
             Err(clause_set_irred) => {
                 println!();
-                println!("index: {}", i);
+                println!("index: {i}");
                 println!("formula b: {}", nnf.display_beautiful());
                 println!("clause_set: {}", clause_set_irred.display_beautiful());
                 //println!("clause_set b: {}", clause_set_irred.to_nnf_boxed().display_beautiful());
@@ -293,19 +293,19 @@ fn main() {
             (Ok(b0), Ok(b1)) => {
                 decidable += 1;
                 assert_eq!(b0, b1);
-                println!("index {} unifiable: {}", i, b0);
+                println!("index {i} unifiable: {b0}");
             }
             (Err(e), Ok(b1)) => {
-                println!("simplification makes index {} solvable to {}", i, b1);
+                println!("simplification makes index {i} solvable to {b1}");
                 println!("stuck at: {}", e.display_beautiful());
                 //panic!("index {}, {} should be {}", i, e.display_beautiful(), b1)
             }
             (_, Err(e)) => {
                 undecidable += 1;
-                println!("index {} gets stuck at:\n{}", i, e.display_beautiful())
+                println!("index {i} gets stuck at:\n{}", e.display_beautiful())
             }
         }
-        println!("stuck {} vs. dec {}", undecidable, decidable);
+        println!("stuck {undecidable} vs. dec {decidable}");
     }
 
     #[allow(dead_code)]

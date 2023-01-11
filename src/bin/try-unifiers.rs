@@ -117,7 +117,7 @@ fn main() {
     println!("formula: {}", formula.display_beautiful());
     match formula.clone().check_unifiable() {
         Ok(b) => {
-            println!("unifiability-dec {}", b);
+            println!("unifiability-dec {b}");
         }
         Err(e) => {
             println!("unifiability-dec stuck {}", e.display_beautiful());

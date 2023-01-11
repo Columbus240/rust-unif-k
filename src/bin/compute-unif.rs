@@ -31,7 +31,7 @@ fn main() {
                 } else {
                     dec_false.inc();
                 }
-                println!("index {}, degree {}, unifiable: {}", i, deg, b);
+                println!("index {i}, degree {deg}, unifiable: {b}");
             }
             Err(e) => {
                 undecidable.inc();
