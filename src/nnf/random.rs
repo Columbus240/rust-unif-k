@@ -34,10 +34,10 @@ pub fn rnd_cnf_box_m(
     // prepare weighted distributions
     let p = {
         let mut new_p = Vec::with_capacity(p.len());
-        for pp in p.into_iter() {
+        for pp in p {
             let mut new_pp = Vec::with_capacity(pp.len());
 
-            for weights in pp.into_iter() {
+            for weights in pp {
                 new_pp.push(WeightedAliasIndex::new(weights)?);
             }
 
@@ -48,7 +48,7 @@ pub fn rnd_cnf_box_m(
     let c = {
         let mut new_c = Vec::with_capacity(p.len());
 
-        for weights in c.into_iter() {
+        for weights in c {
             new_c.push(WeightedAliasIndex::new(weights)?);
         }
 

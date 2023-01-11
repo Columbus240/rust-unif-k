@@ -31,14 +31,15 @@ impl NNF {
     /// Returns the negation of the formula.
     /// It is computed by switching `AtomPos` with `AtomNeg`, `Bot` with
     /// `Top`, `And` with `Or` and `NnfBox` with `NnfDia`.
+    #[must_use]
     pub fn neg(&self) -> NNF {
         match self {
             NNF::AtomPos(i) => NNF::AtomNeg(*i),
             NNF::AtomNeg(i) => NNF::AtomPos(*i),
             NNF::Bot => NNF::Top,
             NNF::Top => NNF::Bot,
-            NNF::And(a) => NNF::Or(a.iter().map(|x| x.neg()).collect()),
-            NNF::Or(a) => NNF::And(a.iter().map(|x| x.neg()).collect()),
+            NNF::And(a) => NNF::Or(a.iter().map(NNF::neg).collect()),
+            NNF::Or(a) => NNF::And(a.iter().map(NNF::neg).collect()),
             NNF::NnfBox(a) => NNF::NnfDia(Box::new(a.neg())),
             NNF::NnfDia(a) => NNF::NnfBox(Box::new(a.neg())),
         }
@@ -47,10 +48,7 @@ impl NNF {
     /// Returns the modal degree of the formula.
     pub fn degree(&self) -> usize {
         match self {
-            NNF::AtomPos(_) => 0,
-            NNF::AtomNeg(_) => 0,
-            NNF::Bot => 0,
-            NNF::Top => 0,
+            NNF::AtomPos(_) | NNF::AtomNeg(_) | NNF::Bot | NNF::Top => 0,
             NNF::And(a) | NNF::Or(a) => {
                 //a.par_iter().map(NNF::degree).max().unwrap_or(0)
                 a.iter().map(NNF::degree).max().unwrap_or(0)
@@ -61,6 +59,7 @@ impl NNF {
 
     /// Returns `true` if `AtomPos(atom)` or `AtomNeg(atom)` appears
     /// somewhere in the formula.
+    #[must_use]
     pub fn contains_atom(&self, atom: NnfAtom) -> bool {
         match self {
             NNF::AtomPos(i) | NNF::AtomNeg(i) => *i == atom,
@@ -75,6 +74,7 @@ impl NNF {
 
     /// Returns `true` if this is a ground formula. I.e. if no variable appears
     /// in it.
+    #[must_use]
     pub fn is_ground(&self) -> bool {
         match self {
             NNF::AtomPos(_) | NNF::AtomNeg(_) => false,
@@ -86,34 +86,40 @@ impl NNF {
 
     /// Shorthand for conjunction of two formulas.
     #[allow(dead_code)]
+    #[must_use]
     pub fn and(phi: NNF, psi: NNF) -> NNF {
         NNF::And(vec![phi, psi])
     }
 
     /// Shorthand for disjunction of two formulas.
     #[allow(dead_code)]
+    #[must_use]
     pub fn or(phi: NNF, psi: NNF) -> NNF {
         NNF::Or(vec![phi, psi])
     }
 
     /// Shorthand for prefixing a formula with a box.
     #[allow(dead_code)]
+    #[must_use]
     pub fn boxx(self) -> NNF {
         NNF::NnfBox(Box::new(self))
     }
 
     /// Shorthand for prefixing a formula with a diamond.
     #[allow(dead_code)]
+    #[must_use]
     pub fn dia(self) -> NNF {
         NNF::NnfDia(Box::new(self))
     }
 
     /// Shorthand for material implication.
+    #[must_use]
     pub fn impli(phi: NNF, psi: NNF) -> NNF {
         NNF::Or(vec![phi.neg(), psi])
     }
 
     /// Shorthand for material equivalence.
+    #[must_use]
     pub fn equiv_formula(phi: NNF, psi: NNF) -> NNF {
         NNF::And(vec![
             NNF::impli(phi.clone(), psi.clone()),
@@ -125,15 +131,17 @@ impl NNF {
     /// and every variable in `subst_bot` that occurs in `self` is replaced by `NNF::Bot`.
     /// The result is returned.
     /// Requires `subst_top` and `subst_bot` to be disjoint.
+    #[must_use]
     pub fn substitute_top_bot(
         self,
         subst_top: &BTreeSet<NnfAtom>,
         subst_bot: &BTreeSet<NnfAtom>,
     ) -> NNF {
         // if the two sets intersect, abort
-        if !subst_top.is_disjoint(subst_bot) {
-            panic!("substitute_top_bot requires disjoint sets as arguments");
-        }
+        assert!(
+            subst_top.is_disjoint(subst_bot),
+            "substitute_top_bot requires disjoint sets as arguments"
+        );
 
         match self {
             NNF::Top => NNF::Top,
@@ -157,13 +165,13 @@ impl NNF {
                 }
             }
             NNF::And(mut conjuncts) => {
-                for conjunct in conjuncts.iter_mut() {
+                for conjunct in &mut conjuncts {
                     *conjunct = conjunct.clone().substitute_top_bot(subst_top, subst_bot);
                 }
                 NNF::And(conjuncts).simpl()
             }
             NNF::Or(mut disjuncts) => {
-                for disjunct in disjuncts.iter_mut() {
+                for disjunct in &mut disjuncts {
                     *disjunct = disjunct.clone().substitute_top_bot(subst_top, subst_bot);
                 }
                 NNF::Or(disjuncts).simpl()
@@ -178,12 +186,11 @@ impl NNF {
     }
 
     /// Every variable in `self` that occurs in `substitution` is
-    /// replaced by the corresponding formula in `substitution.
+    /// replaced by the corresponding formula in `substitution`.
     /// Variables that occur in `self` but not in `substitution` are not affected.
     pub fn substitute(&mut self, substitution: &BTreeMap<NnfAtom, NNF>) {
         match self {
-            NNF::Top => {}
-            NNF::Bot => {}
+            NNF::Top | NNF::Bot => {}
             NNF::AtomPos(atom) => {
                 if let Some(nnf) = substitution.get(atom) {
                     *self = nnf.clone();
@@ -194,20 +201,12 @@ impl NNF {
                     *self = nnf.neg();
                 }
             }
-            NNF::And(s) => {
+            NNF::And(s) | NNF::Or(s) => {
                 for phi in s.iter_mut() {
                     phi.substitute(substitution);
                 }
             }
-            NNF::Or(s) => {
-                for phi in s.iter_mut() {
-                    phi.substitute(substitution);
-                }
-            }
-            NNF::NnfBox(phi0) => {
-                phi0.substitute(substitution);
-            }
-            NNF::NnfDia(phi0) => {
+            NNF::NnfBox(phi0) | NNF::NnfDia(phi0) => {
                 phi0.substitute(substitution);
             }
         }
@@ -215,6 +214,7 @@ impl NNF {
 
     /// Substitute all variables that occur in `self` with the formula `sigma`.
     #[allow(dead_code)]
+    #[must_use]
     pub fn substitute_all(&self, sigma: &NNF) -> NNF {
         let sigma_neg = sigma.neg();
         // this indirection is, so we don't need to recompute `sigma.neg()`
@@ -252,34 +252,29 @@ impl NNF {
     pub fn iter_atoms<'a>(&'a self) -> Box<dyn Iterator<Item = NnfAtom> + 'a> {
         use std::iter;
         match self {
-            NNF::Top => Box::new(iter::empty()),
-            NNF::Bot => Box::new(iter::empty()),
-            NNF::AtomPos(i) => Box::new(iter::once(*i)),
-            NNF::AtomNeg(i) => Box::new(iter::once(*i)),
-            NNF::And(vec) => Box::new(vec.iter().flat_map(NNF::iter_atoms)),
-            NNF::Or(vec) => Box::new(vec.iter().flat_map(NNF::iter_atoms)),
-            NNF::NnfBox(phi) => Box::new(phi.iter_atoms()),
-            NNF::NnfDia(phi) => Box::new(phi.iter_atoms()),
+            NNF::Top | NNF::Bot => Box::new(iter::empty()),
+            NNF::AtomPos(i) | NNF::AtomNeg(i) => Box::new(iter::once(*i)),
+            NNF::And(vec) | NNF::Or(vec) => Box::new(vec.iter().flat_map(NNF::iter_atoms)),
+            NNF::NnfBox(phi) | NNF::NnfDia(phi) => Box::new(phi.iter_atoms()),
         }
     }
 
     /// Returns true if `nnf` is valid in K and `false` otherwise.
     /// Uses an externally provided binary of Spartacus.
     /// The path to the binary is currently hardcoded.
-    pub fn check_using_spartacus(nnf: NNF) -> bool {
+    #[must_use]
+    pub fn check_using_spartacus(&self) -> bool {
         use std::process::Command;
         // Path to the spartacus binary
         const SPARTACUS_BIN: &str = "/home/steve/doc/uni/MA/spartacus/spartacus";
         let c = Command::new(SPARTACUS_BIN)
             .args([
                 "--negate",
-                &format!("--formula={}", nnf.display_spartacus()),
+                &format!("--formula={}", self.display_spartacus()),
             ])
             .output()
             .expect("failed to run spartacus");
-        if !c.status.success() {
-            panic!("spartacus had an error");
-        }
+        assert!(c.status.success(), "spartacus had an error");
 
         // Determine what spartacus spat out.
         let sat: &[u8] = "satisfiable".as_bytes();

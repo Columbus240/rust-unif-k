@@ -58,8 +58,7 @@ impl BoxConjuncts {
 
     fn and(self, disj: BoxConjuncts) -> BoxConjuncts {
         match (self, disj) {
-            (BoxConjuncts::None, disj) => disj,
-            (disj, BoxConjuncts::None) => disj,
+            (BoxConjuncts::None, disj) | (disj, BoxConjuncts::None) => disj,
             (BoxConjuncts::Bot, _) | (_, BoxConjuncts::Bot) => BoxConjuncts::Bot,
             (BoxConjuncts::Some(nc0), BoxConjuncts::Some(nc1)) => {
                 if let Some(new_nc) = nc0.and(*nc1) {
@@ -125,8 +124,7 @@ impl DiaDisjuncts {
 
     fn or(self, disj: DiaDisjuncts) -> DiaDisjuncts {
         match (self, disj) {
-            (DiaDisjuncts::None, disj) => disj,
-            (disj, DiaDisjuncts::None) => disj,
+            (DiaDisjuncts::None, disj) | (disj, DiaDisjuncts::None) => disj,
             (DiaDisjuncts::Top, _) | (_, DiaDisjuncts::Top) => DiaDisjuncts::Top,
             (DiaDisjuncts::Some(nd0), DiaDisjuncts::Some(nd1)) => {
                 if let Some(new_nd) = nd0.or(*nd1) {
@@ -330,8 +328,12 @@ impl NnfDisj {
             atoms_neg: self.atoms_pos,
 
             boxed_conjuncts: self.diamond_disjuncts.neg(),
-            diamond_conjuncts: self.box_disjuncts.into_iter().map(|p| p.neg()).collect(),
-            or_conjuncts: self.and_disjuncts.into_iter().map(|p| p.neg()).collect(),
+            diamond_conjuncts: self
+                .box_disjuncts
+                .into_iter()
+                .map(NnfPrecise::neg)
+                .collect(),
+            or_conjuncts: self.and_disjuncts.into_iter().map(NnfConj::neg).collect(),
         }
     }
 
@@ -441,7 +443,7 @@ impl NnfDisj {
         let and_disjuncts = std::mem::take(&mut self.and_disjuncts);
 
         // now simplify the parts, while writing the results back into `self`
-        for bd in box_disjuncts.into_iter() {
+        for bd in box_disjuncts {
             let bd = bd.simpl();
 
             if bd == NnfPrecise::Top {
@@ -449,12 +451,12 @@ impl NnfDisj {
             }
 
             if let Some(disj) = self.add_precise(NnfPrecise::NnfBox(Box::new(bd))) {
-                self = disj
+                self = disj;
             } else {
                 return NnfPrecise::Top;
             }
         }
-        for ad in and_disjuncts.into_iter() {
+        for ad in and_disjuncts {
             let ad = ad.simpl();
             if let Some(disj) = self.add_precise(ad) {
                 self = disj;

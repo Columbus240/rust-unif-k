@@ -139,6 +139,7 @@ pub struct BasicFineFormNNFIter {
 }
 
 impl BasicFineFormNNFIter {
+    #[must_use]
     pub fn new(num_variables: NnfAtom) -> BasicFineFormNNFIter {
         BasicFineFormNNFIter {
             internal_iter: BasicLevelFineFormNNFIter::new(num_variables, Vec::new()),
@@ -146,6 +147,7 @@ impl BasicFineFormNNFIter {
         }
     }
 
+    #[must_use]
     pub fn get_curr_level(&self) -> usize {
         self.curr_level
     }
@@ -181,6 +183,7 @@ impl LevelFineFormNNFIter {
     /// `prev_level` shall contain the basic normal forms of the previous level.
     /// If `prev_level` is not empty, then `NNF::Bot` (empty
     /// disjunction) will not be listed. No particular effort is made to list `NNF::Top`.
+    #[must_use]
     fn new(num_variables: NnfAtom, prev_level: Vec<NNF>) -> LevelFineFormNNFIter {
         // This could be replaced by `full_powerset = BigInt::zero()`,
         // but this would break compatibility to the old code.
@@ -239,6 +242,7 @@ pub struct FineFormNNFIter {
 }
 
 impl FineFormNNFIter {
+    #[must_use]
     pub fn new(num_variables: NnfAtom) -> FineFormNNFIter {
         FineFormNNFIter {
             first_step: true,
@@ -247,10 +251,12 @@ impl FineFormNNFIter {
         }
     }
 
+    #[must_use]
     pub fn get_curr_level(&self) -> usize {
         self.curr_level
     }
 
+    #[must_use]
     pub fn get_curr_level_len(&self) -> usize {
         self.internal_iter.internal_iter.curr_level_formulae.len()
     }

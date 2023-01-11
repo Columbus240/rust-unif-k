@@ -156,13 +156,13 @@ use proptest::proptest;
 proptest! {
 #[test]
 fn test_validity_spartacus0(nnf in crate::nnf::arb_nnf()) {
-    assert_eq!(nnf.clone().is_valid(), NNF::check_using_spartacus(nnf));
+    assert_eq!(nnf.clone().is_valid(), NNF::check_using_spartacus(&nnf));
 }
 }
 #[test]
 fn test_validity_spartacus1() {
     for nnf in crate::fineform_iter::FineFormNNFIter::new(2).take(100) {
-        assert_eq!(nnf.clone().is_valid(), NNF::check_using_spartacus(nnf));
+        assert_eq!(nnf.clone().is_valid(), NNF::check_using_spartacus(&nnf));
     }
 }
 

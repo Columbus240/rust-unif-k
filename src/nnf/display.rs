@@ -2,12 +2,14 @@ use super::NNF;
 
 impl NNF {
     /// Provides a pretty-printer to format the formula in UTF-8.
+    #[must_use]
     pub fn display_beautiful(&self) -> DisplayBeautiful {
         DisplayBeautiful { nnf: self }
     }
 
     /// Provides a pretty-printer to format the formula for use in
     /// LaTeX.
+    #[must_use]
     pub fn display_latex(&self) -> DisplayLaTeX {
         DisplayLaTeX { nnf: self }
     }
@@ -15,12 +17,14 @@ impl NNF {
     /// Provides a pretty-printer to format the formula for use with
     /// Spartacus.
     /// TODO: This format has some standardised name. Mention it here.
+    #[must_use]
     pub fn display_spartacus(&self) -> DisplaySpartacus {
         DisplaySpartacus { nnf: self }
     }
 
     /// Provides a pretty-printer to format the formula for use with
     /// [`LiteralParser`][crate::nnf_parser::LiteralParser].
+    #[must_use]
     pub fn display_parser(&self) -> DisplayParser {
         DisplayParser { nnf: self }
     }

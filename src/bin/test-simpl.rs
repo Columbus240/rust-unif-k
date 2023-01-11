@@ -11,7 +11,7 @@ fn main() {
             break;
         }
         let nnf_simpl_new = nnf.clone().simpl();
-        assert!(NNF::check_using_spartacus(NNF::equiv_formula(
+        assert!(NNF::check_using_spartacus(&NNF::equiv_formula(
             nnf,
             nnf_simpl_new
         )));

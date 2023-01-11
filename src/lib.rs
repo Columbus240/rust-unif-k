@@ -2,6 +2,10 @@
 #![feature(btree_drain_filter)]
 #![feature(test)]
 #![feature(drain_filter)]
+#![warn(clippy::manual_assert)]
+#![warn(clippy::missing_panics_doc)]
+#![warn(clippy::explicit_iter_loop)]
+#![warn(clippy::explicit_into_iter_loop)]
 
 #[allow(unused_imports)]
 use std::collections::btree_map::BTreeMap;
