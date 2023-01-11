@@ -37,6 +37,7 @@ pub struct PSW {
 
 impl PSW {
     /// Create a new, contradictory sequent
+    #[must_use]
     pub fn new_contradictory() -> PSW {
         PSW {
             atoms: BTreeMap::new(),
@@ -50,10 +51,12 @@ impl PSW {
     }
 
     /// Create a new sequent from an `NNF`
+    #[must_use]
     pub fn from_nnf(phi: NNF) -> PSW {
         PSW::from_waiting(Vec::new(), vec![phi])
     }
 
+    #[must_use]
     pub fn from_waiting(lw: Vec<NNF>, rw: Vec<NNF>) -> PSW {
         PSW {
             atoms: BTreeMap::new(),
@@ -96,11 +99,13 @@ impl PSW {
     }
 
     /// Convert this sequent to an equivalent `NNF`.
+    #[must_use]
     pub fn to_nnf(&self) -> NNF {
         let (l, r) = self.to_nnf_lr();
         NNF::impli(l, r).simpl()
     }
 
+    #[must_use]
     pub fn display_beautiful(&self) -> PSWDisplayBeautiful {
         PSWDisplayBeautiful { psw: self }
     }
@@ -218,6 +223,7 @@ impl TryFrom<PSI> for PSB {
 }
 
 impl PSI {
+    #[must_use]
     pub fn new_empty() -> PSI {
         PSI {
             atoms: BTreeMap::new(),
@@ -234,6 +240,7 @@ impl PSI {
 
     /// Represent this sequent as `NNF` but keep the left and right
     /// half of the sequent separate
+    #[must_use]
     pub fn to_nnf_lr(&self) -> (NNF, NNF) {
         let mut atoms_l = Vec::new();
         let mut atoms_r = Vec::new();
@@ -257,19 +264,23 @@ impl PSI {
         (NNF::And(left), NNF::Or(right))
     }
 
+    #[must_use]
     pub fn to_nnf(&self) -> NNF {
         let (l, r) = self.to_nnf_lr();
         NNF::impli(l, r).simpl()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.atoms.is_empty() && self.lb.is_empty() && self.rb.is_empty()
     }
 
+    #[must_use]
     pub fn display_beautiful(&self) -> PSIDisplayBeautiful {
         PSIDisplayBeautiful { psi: self }
     }
 
+    #[must_use]
     pub fn substitute(mut self, substitution: &BTreeMap<NnfAtom, NNF>) -> PSW {
         self.lb = self
             .lb
@@ -368,6 +379,7 @@ impl PSI {
     /// Returns `Some(true)` if the sequent is valid.
     /// Returns `Some(false)` if the sequent is contradictory.
     /// Returns `None` if it is hard to tell.
+    #[must_use]
     pub fn simple_check_validity(&self) -> Option<bool> {
         if self.is_empty() {
             return Some(false);
@@ -391,6 +403,7 @@ impl PSI {
         None
     }
 
+    #[must_use]
     pub fn new_valid() -> PSI {
         PSI {
             atoms: BTreeMap::new(),
@@ -405,6 +418,7 @@ impl PSI {
 
     /// requires that the two sets don't intersect.
     /// Returns `None` if the resulting sequent is trivially valid.
+    #[must_use]
     pub fn substitute_top_bot(
         mut self,
         subst_top: &BTreeSet<NnfAtom>,
@@ -456,6 +470,7 @@ impl PSI {
 
         Some(self)
     }
+    #[must_use]
     pub fn display_latex(&self) -> PSIDisplayLaTeX {
         PSIDisplayLaTeX { psi: self }
     }
@@ -466,6 +481,7 @@ impl PSI {
         }
     */
 
+    #[must_use]
     pub fn left_atoms(&self) -> BTreeSet<NnfAtom> {
         self.atoms
             .iter()
@@ -476,6 +492,7 @@ impl PSI {
             .collect()
     }
 
+    #[must_use]
     pub fn right_atoms(&self) -> BTreeSet<NnfAtom> {
         self.atoms
             .iter()
@@ -493,6 +510,7 @@ impl PSI {
     /// then return `Some(Left)`.
     /// If the inclusions are the other way around, return `Some(Right)`.
     /// Otherwise return `None`.
+    #[must_use]
     pub fn check_subset(seq0: &PSI, seq1: &PSI) -> Option<LeftRight> {
         let left_atoms0: BTreeSet<_> = seq0.left_atoms();
         let left_atoms1: BTreeSet<_> = seq1.left_atoms();
@@ -691,6 +709,7 @@ impl PSW {
 
     /// Transforms the given `PSW` into an equivalent but simpler `PS`.
     /// Returns `None` if the input is valid.
+    #[must_use]
     pub fn into_ps(mut self) -> Option<PS> {
         loop {
             if self.lw.is_empty() && self.rw.is_empty() {
@@ -716,10 +735,12 @@ pub enum PSConjsResult {
 }
 
 impl PS {
+    #[must_use]
     pub fn to_nnf(&self) -> NNF {
         Into::<PSW>::into(self.clone()).to_nnf()
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.atoms.is_empty()
             && self.lb.is_empty()
@@ -728,6 +749,7 @@ impl PS {
             && self.rc.is_empty()
     }
 
+    #[must_use]
     pub fn new_valid() -> PS {
         PS {
             atoms: BTreeMap::new(),
@@ -793,6 +815,7 @@ impl PS {
 
     /// requires that the two sets don't intersect.
     /// Returns `None` if the resulting sequent is trivially valid.
+    #[must_use]
     pub fn substitute_top_bot(
         mut self,
         subst_top: &BTreeSet<NnfAtom>,
@@ -978,6 +1001,7 @@ impl PS {
         }
     }
 
+    #[must_use]
     pub fn process_conjs_step(mut self) -> PSConjsResult {
         self.process_easy_conjs();
         if let Some(conjuncts) = self.rc.pop() {
@@ -1021,15 +1045,18 @@ pub struct PSB {
 }
 
 impl PSB {
+    #[must_use]
     pub fn new_contradictory() -> PSB {
         PSB {
             lb: BTreeSet::new(),
             rb: BTreeSet::new(),
         }
     }
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.lb.is_empty() && self.rb.is_empty()
     }
+    #[must_use]
     pub fn to_nnf(&self) -> NNF {
         Into::<PSI>::into(self.clone()).to_nnf()
     }
@@ -1053,6 +1080,7 @@ impl PSB {
 
     /// requires that the two sets don't intersect.
     /// Returns `None` if the resulting sequent is trivially valid.
+    #[must_use]
     pub fn substitute_top_bot(
         mut self,
         subst_top: &BTreeSet<NnfAtom>,
@@ -1093,6 +1121,7 @@ impl PSB {
     /// at most one boxed formulae on the right.
     ///
     /// Returns `PsbEasyResult::Hard` iff it has more than one boxed formulae on the right.
+    #[must_use]
     pub fn step_if_easy(self) -> PsbEasyResult {
         // If the sequent has no boxed formulae on the right, it is contradictory.
         // Making the whole clause contradictory.

@@ -9,6 +9,7 @@ use super::sequents::*;
 use crate::nnf::NNF;
 
 impl NNF {
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         // short circuit
         match self {
@@ -21,6 +22,7 @@ impl NNF {
         psw_compute_validity(PSW::from_nnf(self.clone()))
     }
 
+    #[must_use]
     pub fn equiv_dec(phi: &NNF, psi: &NNF) -> bool {
         if phi == psi {
             return true;

@@ -207,12 +207,14 @@ pub struct BasicFineFormIter {
 }
 
 impl BasicFineFormIter {
+    #[must_use]
     pub fn new(num_variables: NnfAtom) -> BasicFineFormIter {
         BasicFineFormIter {
             internal_iter: BasicLevelFineFormIter::new(0, num_variables, Vec::new()).unwrap(),
         }
     }
 
+    #[must_use]
     pub fn get_curr_level(&self) -> usize {
         self.internal_iter.degree
     }

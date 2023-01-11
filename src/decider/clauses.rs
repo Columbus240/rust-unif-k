@@ -43,6 +43,7 @@ impl ClauseWaiting {
             && self.conj_disj_sequents.is_empty()
     }
 
+    #[must_use]
     pub fn from_nnf(nnf: NNF) -> ClauseWaiting {
         ClauseWaiting::from_psw(PSW::from_nnf(nnf))
     }
@@ -73,10 +74,12 @@ impl ClauseWaiting {
             ClauseWaiting::new_valid()
         }
     }
+    #[must_use]
     pub fn display_beautiful(&self) -> ClauseWaitingDisplayBeautiful {
         ClauseWaitingDisplayBeautiful { clause: self }
     }
 
+    #[must_use]
     pub fn from_sequent(ps: PS) -> ClauseWaiting {
         let mut cw = ClauseWaiting {
             irreducibles: BTreeSet::new(),
@@ -182,6 +185,7 @@ impl ClauseWaiting {
     /// Only processes the `atom_sequents` which have at most a single boxed term on the right.
     /// This way we can avoid doing work twice in all branches.
     /// Notice the similarity to `insert_psb` and that this function does not call `insert_psb`.
+    #[must_use]
     pub fn process_easy_boxes(mut self) -> Self {
         let mut waiting_atoms: BTreeSet<PSB> = std::mem::take(&mut self.atom_sequents);
 
@@ -225,6 +229,7 @@ impl ClauseWaiting {
         }
     }
 
+    #[must_use]
     pub fn process_conjs(mut self) -> ClauseAtoms {
         loop {
             match self.try_into() {
@@ -237,6 +242,7 @@ impl ClauseWaiting {
         }
     }
 
+    #[must_use]
     pub fn to_nnf(&self) -> NNF {
         let irreducibles = self.irreducibles.iter().map(|psi| psi.to_nnf());
         let atom_sequents = self.atom_sequents.iter().map(|psb| psb.to_nnf());
@@ -249,6 +255,7 @@ impl ClauseWaiting {
         )
     }
 
+    #[must_use]
     pub fn simple_check_unifiability(&self) -> Option<bool> {
         if let Some(b) = self.simple_check_validity() {
             return Some(b);
@@ -298,6 +305,7 @@ impl ClauseWaiting {
     }
 
     /// Thoroughly checks the validity of this clause using the validity checker.
+    #[must_use]
     pub fn check_valid(&self) -> bool {
         self.to_nnf().is_valid()
     }
@@ -501,6 +509,7 @@ impl ClauseAtoms {
         None
     }
 
+    #[must_use]
     pub fn process_atoms_step(self) -> ProcessAtomsResult {
         // Shortcut if the clause has no `atom_sequents`.
         if self.atom_sequents.is_empty() {
@@ -1271,6 +1280,7 @@ impl ClauseIrred {
     /// Returns `Some(true)` if the clause is empty. i.e. the clause
     /// is valid.
     /// Returns `None` otherwise
+    #[must_use]
     pub fn simple_check_validity(&self) -> Option<bool> {
         if self.is_empty() {
             return Some(true);
@@ -1283,6 +1293,7 @@ impl ClauseIrred {
         None
     }
 
+    #[must_use]
     pub fn simple_check_unifiability(&self) -> Option<bool> {
         if let Some(b) = self.simple_check_validity() {
             return Some(b);
@@ -1314,10 +1325,12 @@ impl ClauseIrred {
         None
     }
 
+    #[must_use]
     pub fn display_beautiful(&self) -> ClauseIrredDisplayBeautiful {
         ClauseIrredDisplayBeautiful { clause: self }
     }
 
+    #[must_use]
     pub fn display_spartacus(&self) -> ClauseIrredDisplaySpartacus {
         ClauseIrredDisplaySpartacus { clause: self }
     }
@@ -1668,17 +1681,21 @@ pub struct ClauseSet {
 }
 
 impl ClauseSet {
+    #[must_use]
     pub fn display_beautiful(&self) -> ClauseSetDisplayBeautiful {
         ClauseSetDisplayBeautiful { clause_set: self }
     }
+    #[must_use]
     pub fn display_latex(&self) -> ClauseSetDisplayLatex {
         ClauseSetDisplayLatex { clause_set: self }
     }
+    #[must_use]
     pub fn from_clause(clause: ClauseWaiting) -> ClauseSet {
         ClauseSet::from_clause_vec(vec![clause])
     }
 
     /// The clause set is irreducible, if the cut-rule has been applied to all sequents.
+    #[must_use]
     pub fn is_irred(&self) -> bool {
         self.irreducibles.is_empty()
             && self.waiting_atoms.is_empty()
@@ -1687,6 +1704,7 @@ impl ClauseSet {
 
     /// Creates an empty (and thus unsatisfiable) `ClauseSet`.
     #[allow(clippy::new_without_default)]
+    #[must_use]
     pub fn new() -> ClauseSet {
         ClauseSet {
             cut_clauses: BTreeSet::new(),
@@ -1696,6 +1714,7 @@ impl ClauseSet {
         }
     }
 
+    #[must_use]
     pub fn from_clause_vec(clauses: Vec<ClauseWaiting>) -> ClauseSet {
         ClauseSet {
             cut_clauses: BTreeSet::new(),
@@ -1705,6 +1724,7 @@ impl ClauseSet {
         }
     }
 
+    #[must_use]
     pub fn from_nnf(nnf: NNF) -> ClauseSet {
         ClauseSet::from_clause(ClauseWaiting::from_nnf(nnf))
     }
@@ -1750,6 +1770,7 @@ impl ClauseSet {
         self.waiting_conj_disj.append(&mut waiting_conj_disj);
     }
 
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.cut_clauses.is_empty()
             && self.irreducibles.is_empty()
@@ -1782,6 +1803,7 @@ impl ClauseSet {
 
     /// Tries to check for unifiability, without making further simplifications.
     /// Try calling `unifiability_simplify` beforehand, for better results.
+    #[must_use]
     pub fn simple_check_unifiable(&self) -> Option<bool> {
         if self.is_empty() {
             return Some(false);
