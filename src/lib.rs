@@ -11,10 +11,10 @@ use std::collections::btree_set::BTreeSet;
 #[allow(unused_imports)]
 use rayon::prelude::*;
 
-#[macro_use]
 extern crate lalrpop_util;
 
-lalrpop_mod!(#[allow(clippy::all)] pub nnf_parser, "/src/nnf_parser.rs");
+#[allow(clippy::all)]
+pub mod nnf_parser;
 
 pub mod decider;
 mod fineform;
