@@ -313,6 +313,7 @@ dependencies = [
  "lalrpop-util",
  "num-bigint",
  "num-traits",
+ "petgraph",
  "proptest",
  "proptest-derive",
  "rand",

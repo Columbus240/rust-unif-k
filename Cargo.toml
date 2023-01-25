@@ -19,6 +19,7 @@ lalrpop-util = { version = "0.19.8", features = ["lexer"] }
 regex = "*"
 rand = "*"
 rand_distr = "*"
+petgraph = "*"
 
 [build-dependencies]
 lalrpop = "0.19.8"

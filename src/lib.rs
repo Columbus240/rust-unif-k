@@ -27,6 +27,7 @@ pub mod nnf_parser;
 pub mod decider;
 mod fineform;
 mod fineform_iter;
+pub mod generated_formula;
 //mod lazy_decider;
 //mod lazy_nnf;
 mod nnf;
