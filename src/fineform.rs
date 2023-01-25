@@ -112,7 +112,24 @@ impl BasicFineForm {
 
         NNF::And(conjuncts)
     }
+
+    #[must_use]
+    pub fn get_degree(&self) -> usize {
+        self.degree
+    }
+
+    #[must_use]
+    pub fn get_num_variables(&self) -> NnfAtom {
+        self.num_variables
+    }
+
+    #[must_use]
+    pub fn get_prev_level(&self) -> &BTreeSet<BasicFineForm> {
+        &self.prev_level
+    }
 }
+
+//TODO: Write a `Display` implementation for `BasicFineForm` which uses the triangle operator.
 
 /// Lists all the basic fine forms of a certain level (as `BasicFineForm`).
 /// The basic fine forms of the previous level must be given as an
