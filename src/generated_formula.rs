@@ -92,6 +92,7 @@ pub fn evaluate_gff<N, E, Ix: IndexType>(
         .any(|bff| evaluate_bff(graph, node, bff).unwrap())
 }
 
+#[derive(Clone)]
 pub struct GroundFineForm {
     basic_formulas: BTreeSet<BasicFineForm>,
 }
@@ -117,6 +118,12 @@ impl GroundFineForm {
         }
 
         Some(GroundFineForm { basic_formulas })
+    }
+}
+
+impl From<GroundFineForm> for BTreeSet<BasicFineForm> {
+    fn from(item: GroundFineForm) -> BTreeSet<BasicFineForm> {
+        item.basic_formulas
     }
 }
 
