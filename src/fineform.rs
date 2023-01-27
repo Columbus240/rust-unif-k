@@ -90,13 +90,7 @@ impl BasicFineForm {
             Vec::with_capacity(self.num_variables as usize + self.prev_level.len() + 1);
 
         // Prepare the list of literals
-        for i in 0..self.num_variables {
-            if self.literals.contains(&i) {
-                conjuncts.push(NNF::AtomPos(i));
-            } else {
-                conjuncts.push(NNF::AtomNeg(i));
-            }
-        }
+        conjuncts.append(&mut self.get_literals_vec());
 
         // Prepare the list of the next level
         conjuncts.extend(
@@ -111,6 +105,18 @@ impl BasicFineForm {
         }
 
         NNF::And(conjuncts)
+    }
+
+    fn get_literals_vec(&self) -> Vec<NNF> {
+        let mut out = Vec::with_capacity(self.num_variables as usize);
+        for i in 0..self.num_variables {
+            if self.literals.contains(&i) {
+                out.push(NNF::AtomPos(i));
+            } else {
+                out.push(NNF::AtomNeg(i));
+            }
+        }
+        out
     }
 
     #[must_use]
@@ -129,7 +135,43 @@ impl BasicFineForm {
     }
 }
 
-//TODO: Write a `Display` implementation for `BasicFineForm` which uses the triangle operator.
+impl std::fmt::Display for BasicFineForm {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        // First output the literals.
+        write!(
+            f,
+            "{}",
+            NNF::And(self.get_literals_vec()).display_beautiful()
+        )?;
+
+        // only output previous levels, if the degree is high enough.
+        if self.degree == 0 {
+            return Ok(());
+        }
+
+        write!(f, " ∧ △{{")?;
+
+        // Output the previous levels.
+        let mut prev_level_iter = self.prev_level.iter();
+
+        match prev_level_iter.next() {
+            None => write!(f, "∅")?,
+            Some(bff) => {
+                if self.degree > 1 {
+                    write!(f, "({bff})")?;
+                } else {
+                    write!(f, "{bff}")?;
+                }
+            }
+        }
+
+        for bff in prev_level_iter {
+            write!(f, ", ({bff})")?;
+        }
+
+        write!(f, "}}")
+    }
+}
 
 /// Lists all the basic fine forms of a certain level (as `BasicFineForm`).
 /// The basic fine forms of the previous level must be given as an
