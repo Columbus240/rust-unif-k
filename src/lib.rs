@@ -26,7 +26,7 @@ pub mod nnf_parser;
 
 pub mod decider;
 mod fineform;
-mod fineform_iter;
+pub mod fineform_iter;
 pub mod generated_formula;
 //mod lazy_decider;
 //mod lazy_nnf;
@@ -34,5 +34,5 @@ mod nnf;
 mod powerset;
 
 pub use fineform::{BasicFineForm, BasicFineFormIter};
-pub use fineform_iter::{BasicFineFormNNFIter, FineFormNNFIter};
+pub use fineform_iter::{BasicFineFormNNFIter, FineFormNNFIter, PowersetIter};
 pub use nnf::{arb_nnf_var, NnfAtom, NNF};

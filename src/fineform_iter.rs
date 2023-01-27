@@ -22,7 +22,7 @@ impl PowersetIter {
     }
 }
 
-fn bigint_to_bitvec(mut int: BigInt, len: usize) -> BitVec<u32> {
+pub fn bigint_to_bitvec(mut int: BigInt, len: usize) -> BitVec<u32> {
     let mut bitvec = BitVec::with_capacity(int.bits() as usize);
     for _ in 0..len {
         // Push the last bit of `int_state` to `bitvec`
