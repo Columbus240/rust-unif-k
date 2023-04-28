@@ -7,7 +7,33 @@ use generator::FineFormNNFIter;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use rayon::prelude::*;
 
+use generator::NNF;
+
 fn main() {
+    let jerabeck: NNF = NNF::and(
+        NNF::impli(NNF::boxx(NNF::AtomPos(0)), NNF::AtomPos(0)),
+        NNF::impli(
+            NNF::AtomPos(0),
+            NNF::equiv_formula(NNF::AtomPos(1), NNF::boxx(NNF::AtomNeg(1))),
+        ),
+    );
+
+    let jerabeck_simpl = jerabeck.clone().simpl();
+    println!(
+        "jerabeck formula: {}\njerabeck simplified: {}",
+        jerabeck.display_beautiful(),
+        jerabeck_simpl.display_beautiful()
+    );
+    match jerabeck_simpl.check_unifiable() {
+        Ok(b) => {
+            println!("decidability of the formula is {b}");
+        }
+        Err(e) => {
+            println!("stuck at:\n{}", e.display_beautiful());
+        }
+    }
+    return;
+
     let dec_false = RelaxedCounter::new(0);
     let dec_true = RelaxedCounter::new(0);
     let undecidable = RelaxedCounter::new(0);
