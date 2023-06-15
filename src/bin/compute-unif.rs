@@ -10,6 +10,7 @@ use rayon::prelude::*;
 use generator::NNF;
 
 fn main() {
+	/*
     let jerabeck: NNF = NNF::and(
         NNF::impli(NNF::boxx(NNF::AtomPos(0)), NNF::AtomPos(0)),
         NNF::impli(
@@ -33,6 +34,7 @@ fn main() {
         }
     }
     return;
+	*/
 
     let dec_false = RelaxedCounter::new(0);
     let dec_true = RelaxedCounter::new(0);
